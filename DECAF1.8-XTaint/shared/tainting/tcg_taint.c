@@ -552,7 +552,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 
 #ifdef CONFIG_TCG_XTAINT
           if(orig1 != orig0) { /* only if src != dest continues */
-        	  tcg_gen_XTAINT_save_temp(arg1, orig1, orig0, DWORD);
+        	  // tcg_gen_XTAINT_save_temp(arg1, orig1, orig0, DWORD);
           }
 #endif
         }
@@ -1368,6 +1368,25 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           //put the original operation back
           tcg_gen_sub_i32(orig0, orig1, orig2);
+
+#ifdef CONFIG_TCG_XTAINT
+          if(orig1 == orig0){ // only need to consider orig2 and orig0
+        	  if(orig2 != orig0) { /* only if src != dest continues */
+        		  tcg_gen_XTAINT_save_temp(arg2, orig2, orig0, DWORD);
+        	  }
+          } else if(orig2 == orig0){ // only need to consider orig1 and orig0
+        	  if(orig1 != orig0) { /* only if src != dest continues */
+        		  tcg_gen_XTAINT_save_temp(arg1, orig1, orig0, DWORD);
+        	  }
+          } else { // need to consider both pairs src & dest
+        	  if(orig2 != orig0) { /* only if src != dest continues */
+				  tcg_gen_XTAINT_save_temp(arg2, orig2, orig0, DWORD);
+			  }
+        	  if(orig1 != orig0) { /* only if src != dest continues */
+				  tcg_gen_XTAINT_save_temp(arg1, orig1, orig0, DWORD);
+			  }
+          }
+#endif
         }
         break;
  // AWH
@@ -1412,6 +1431,24 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_or_i32(arg0, t0, t1); // (s32 | (-s32)) -> vLo32
           /* Reinsert original opcode */
           tcg_gen_mul_i32(orig0, orig1, orig2);
+//#ifdef CONFIG_TCG_XTAINT
+//          if(orig1 == orig0){ // only need to consider orig2 and orig0
+//        	  if(orig2 != orig0) { /* only if src != dest continues */
+//        		  tcg_gen_XTAINT_save_temp(arg2, orig2, orig0, DWORD);
+//        	  }
+//          } else if(orig2 == orig0){ // only need to consider orig1 and orig0
+//        	  if(orig1 != orig0) { /* only if src != dest continues */
+//        		  tcg_gen_XTAINT_save_temp(arg1, orig1, orig0, DWORD);
+//        	  }
+//          } else { // need to consider both pairs src & dest
+//        	  if(orig2 != orig0) { /* only if src != dest continues */
+//				  tcg_gen_XTAINT_save_temp(arg2, orig2, orig0, DWORD);
+//			  }
+//        	  if(orig1 != orig0) { /* only if src != dest continues */
+//				  tcg_gen_XTAINT_save_temp(arg1, orig1, orig0, DWORD);
+//			  }
+//          }
+//#endif
         }
         break;
 

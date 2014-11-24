@@ -1511,6 +1511,23 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
 
     tcg_out_qemu_st_direct(s, data_reg, data_reg2,
                            tcg_target_call_iarg_regs[0], 0, opc);
+#ifdef CONFIG_TCG_XTAINT
+    if(cpu_single_env->tempidx != 0) {	// if tainted
+		/* mchen - save the mem access info: addr & val via calling a custom func*/
+		tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save the mem addr in eax
+		tcg_out_push(s, tcg_target_call_iarg_regs[1]); // save the val in edx
+		tcg_out_push(s, tcg_target_call_iarg_regs[2]); // save the mem size
+
+		tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[2], s_bits + x_st);
+		tcg_out_mov(s, TCG_TYPE_I32,
+		  tcg_target_call_iarg_regs[1], data_reg);
+		tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem);
+
+		tcg_out_pop(s, tcg_target_call_iarg_regs[2]);
+		tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
+		tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
+    }
+#endif /* CONFIG_TCG_XTAINT */
 
     /* jmp label2 */
     tcg_out8(s, OPC_JMP_short);
@@ -1650,19 +1667,21 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
                            tcg_target_call_iarg_regs[0], 0, opc);
 
 #ifdef CONFIG_TCG_XTAINT
-    /* mchen - save the mem access info: addr & val via calling a custom func*/
-    tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save the mem addr in eax
-	tcg_out_push(s, tcg_target_call_iarg_regs[1]); // save the val in edx
-	tcg_out_push(s, tcg_target_call_iarg_regs[2]); // save the mem size
+    if(cpu_single_env->tempidx != 0) {	// if tainted
+		/* mchen - save the mem access info: addr & val via calling a custom func*/
+		tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save the mem addr in eax
+		tcg_out_push(s, tcg_target_call_iarg_regs[1]); // save the val in edx
+		tcg_out_push(s, tcg_target_call_iarg_regs[2]); // save the mem size
 
-	tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[2], s_bits);
-    tcg_out_mov(s, TCG_TYPE_I32,
-      tcg_target_call_iarg_regs[1], data_reg);
-    tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem);
+		tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[2], s_bits + x_ld);
+		tcg_out_mov(s, TCG_TYPE_I32,
+		  tcg_target_call_iarg_regs[1], data_reg);
+		tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem);
 
-    tcg_out_pop(s, tcg_target_call_iarg_regs[2]);
-	tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
-	tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
+		tcg_out_pop(s, tcg_target_call_iarg_regs[2]);
+		tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
+		tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
+    }
 #endif /* CONFIG_TCG_XTAINT */
 
     /* jmp label2 */

@@ -14,6 +14,8 @@ extern "C" {
 #define xdword 0x3
 #define xb_esp 0x4
 #define xb_ebp 0x8
+#define x_ld 0xc
+#define x_st 0xf0
 #endif
 
 /* These were originally in TEMU_main.h */
@@ -57,7 +59,7 @@ extern void qemu_free(void *ptr);
 
 #ifdef CONFIG_TCG_XTAINT
 
-#define XTAINT_MAX_POOL_SIZE (32 * 1024 * 1024)
+#define XTAINT_MAX_POOL_SIZE (64 * 1024 * 1024)
 #define XTAINT_POOL_THRESHOLD (1024 * 1024)
 
 extern uint8_t xtaint_pool[XTAINT_MAX_POOL_SIZE];
@@ -215,7 +217,7 @@ extern void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr);
 extern void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr);
 
 #ifdef CONFIG_TCG_XTAINT
-extern void REGPARM XTAINT_save_mem(uint32_t addr, uint32_t val, uint32_t flag);
+extern void REGPARM XTAINT_save_mem(uint32_t addr, uint32_t val, uint8_t flag);
 extern void XTAINT_log_temp();
 //extern void REGPARM XTAINT_pTest_passByReg(uint32_t eax);
 #endif /* CONFIG_TCG_XTAINT */
