@@ -649,7 +649,7 @@ static void convert_endian_4b(uint32_t *data)
 //sprintf(m, "%d", tm.tm_mon + 1);
 //sprintf(d, "%d", tm.tm_mday);
 
-char *xtaint_fpath = "/home/user/Workspace-Ubuntu1004/Qemu/XTaint/Result/xtaint-save_temp-11_24_14.log";
+char *xtaint_fpath = "/home/user/Workspace-Ubuntu1004/Qemu/XTaint/Result/xtaint-save_temp-11_25_14.log";
 
 void XTAINT_init(void) {
 	if((xtaint_fp = fopen(xtaint_fpath, "wa") ) == NULL){
