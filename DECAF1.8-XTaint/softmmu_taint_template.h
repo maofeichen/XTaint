@@ -124,18 +124,20 @@ fprintf(stderr, "Entry %s() -> addr: 0x%08x mmu_idx: 0x%08x\n", "__taint_ldb", a
             glue(glue(__taint_ld, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
 
 #ifdef CONFIG_TCG_XTAINT
-            if(cpu_single_env->tempidx != 0) {	// if tainted
-				/* mchen - save the mem access info: addr & val via calling a custom func*/
-				switch(DATA_SIZE){
-					case 4:
-						XTAINT_save_mem((unsigned long)(addr+addend), res, 2 + x_ld);
-						break;
-					case 2:
-						XTAINT_save_mem((unsigned long)(addr+addend), res, 1 + x_ld);
-						break;
-					default:
-						XTAINT_save_mem((unsigned long)(addr+addend), res, 0 + x_ld);
-						break;
+            if(xtaint_save_temp_enabled){
+				if(cpu_single_env->tempidx != 0) {	// if tainted
+					/* mchen - save the mem access info: addr & val via calling a custom func*/
+					switch(DATA_SIZE){
+						case 4:
+							XTAINT_save_mem((unsigned long)(addr+addend), res, 2 + x_ld);
+							break;
+						case 2:
+							XTAINT_save_mem((unsigned long)(addr+addend), res, 1 + x_ld);
+							break;
+						default:
+							XTAINT_save_mem((unsigned long)(addr+addend), res, 0 + x_ld);
+							break;
+					}
 				}
             }
 #endif /* CONFIG_TCG_XTAINT */
@@ -401,18 +403,20 @@ fprintf(stderr, "Start  %s() -> addr: 0x%08x, data: 0x%08x, mmu_idx: %d, taint: 
             glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
 
 #ifdef CONFIG_TCG_XTAINT
-            if(cpu_single_env->tempidx != 0) {	// if tainted
-				/* mchen - save the mem access info: addr & val via calling a custom func*/
-				switch(DATA_SIZE){
-					case 4:
-						XTAINT_save_mem((unsigned long)(addr+addend), val, 2 + x_st);
-						break;
-					case 2:
-						XTAINT_save_mem((unsigned long)(addr+addend), val, 1 + x_st);
-						break;
-					default:
-						XTAINT_save_mem((unsigned long)(addr+addend), val, 0 + x_st);
-						break;
+            if(xtaint_save_temp_enabled){
+				if(cpu_single_env->tempidx != 0) {	// if tainted
+					/* mchen - save the mem access info: addr & val via calling a custom func*/
+					switch(DATA_SIZE){
+						case 4:
+							XTAINT_save_mem((unsigned long)(addr+addend), val, 2 + x_st);
+							break;
+						case 2:
+							XTAINT_save_mem((unsigned long)(addr+addend), val, 1 + x_st);
+							break;
+						default:
+							XTAINT_save_mem((unsigned long)(addr+addend), val, 0 + x_st);
+							break;
+					}
 				}
             }
 #endif /* CONFIG_TCG_XTAINT */
