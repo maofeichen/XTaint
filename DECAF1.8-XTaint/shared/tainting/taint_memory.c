@@ -29,6 +29,7 @@ const uint32_t LEAF_ADDRESS_MASK = (2 << BITPAGE_LEAF_BITS) - 1;
 const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1; 
 
 #ifdef CONFIG_TCG_XTAINT
+int xtaint_save_temp_enabled = 1;	// enable save temp or not
 
 uint8_t xtaint_pool[XTAINT_MAX_POOL_SIZE];
 uint8_t *xtaint_ptr_cur_rcrd = xtaint_pool;
@@ -574,6 +575,23 @@ void XTAINT_log_temp(){
 //	printf("t1, t2, t3: \t%x, %x, %x\n", t1, t2, t3);
 //	printf("pass val via eax is %x\n", eax);
 //}
+
+int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data) {
+	if (!taint_tracking_enabled)
+		monitor_printf(default_mon, "Ignored, taint tracking is disabled\n");
+	else {
+		CPUState *env;
+		DECAF_stop_vm();
+		env = cpu_single_env ? cpu_single_env : first_cpu;
+		xtaint_save_temp_enabled = qdict_get_bool(qdict, "load");
+		DECAF_start_vm();
+		tb_flush(env);
+		monitor_printf(default_mon,
+				"save temp changed -> %s\n",
+				xtaint_save_temp_enabled ? "ON " : "OFF");
+	}
+	return 0;
+}
 #endif /* CONFIG_TCG_XTAINT */
 
 uint32_t calc_tainted_bytes(void){

@@ -16,6 +16,8 @@ extern "C" {
 #define xb_ebp 0x8
 #define x_ld 0xc
 #define x_st 0xf0
+
+extern int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data);
 #endif
 
 /* These were originally in TEMU_main.h */
@@ -58,6 +60,7 @@ extern void qemu_free(void *ptr);
 #define BITPAGE_MIDDLE_POOL_SIZE 50
 
 #ifdef CONFIG_TCG_XTAINT
+extern int xtaint_save_temp_enabled;
 
 #define XTAINT_MAX_POOL_SIZE (64 * 1024 * 1024)
 #define XTAINT_POOL_THRESHOLD (1024 * 1024)
