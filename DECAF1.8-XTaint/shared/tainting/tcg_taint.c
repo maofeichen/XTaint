@@ -974,12 +974,21 @@ static inline int gen_taintcheck_insn(int search_pc)
           if (arg1 && arg2) {
             t0 = tcg_temp_new_i32();
             tcg_gen_or_i32(t0, arg1, arg2);
+#ifdef CONFIG_TCG_XTAINT
+            XTaint_instru_save_temp_three_opr(orig0, orig1, orig2, arg1, arg2);
+#endif
           } else if (arg1) {
             t0 = tcg_temp_new_i32();
             tcg_gen_mov_i32(t0, arg1);
+#ifdef CONFIG_TCG_XTAINT
+            XTaint_instru_save_temp_three_opr_setcond(orig0, orig1,orig2, arg1);
+#endif
           } else if (arg2) {
             t0 = tcg_temp_new_i32();
             tcg_gen_mov_i32(t0, arg2);
+#ifdef CONFIG_TCG_XTAINT
+            XTaint_instru_save_temp_three_opr_setcond(orig0, orig1,orig2, arg2);
+#endif
           } else {
             tcg_gen_mov_i32(arg0, 0);
             /* Reinsert original opcode */
@@ -2955,6 +2964,26 @@ inline void XTaint_instru_save_temp_three_opr(TCGv orig0, TCGv orig1, TCGv orig2
 	  }
 	  if(orig1 != orig0) { /* only if src != dest continues */
 		  tcg_gen_XTAINT_save_temp(arg1, orig1, orig0, DWORD);
+	  }
+	}
+}
+
+inline void XTaint_instru_save_temp_three_opr_setcond(TCGv orig0, TCGv orig1, TCGv orig2,
+										TCGv arg){
+	if(orig1 == orig0){ // only need to consider orig2 and orig0
+	  if(orig2 != orig0) { /* only if src != dest continues */
+		  tcg_gen_XTAINT_save_temp(arg, orig2, orig0, DWORD);
+	  }
+	} else if(orig2 == orig0){ // only need to consider orig1 and orig0
+	  if(orig1 != orig0) { /* only if src != dest continues */
+		  tcg_gen_XTAINT_save_temp(arg, orig1, orig0, DWORD);
+	  }
+	} else { // need to consider both pairs src & dest
+	  if(orig2 != orig0) { /* only if src != dest continues */
+		  tcg_gen_XTAINT_save_temp(arg, orig2, orig0, DWORD);
+	  }
+	  if(orig1 != orig0) { /* only if src != dest continues */
+		  tcg_gen_XTAINT_save_temp(arg, orig1, orig0, DWORD);
 	  }
 	}
 }
