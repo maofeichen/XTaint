@@ -1515,18 +1515,18 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     if(xtaint_save_temp_enabled){
 		if(cpu_single_env->tempidx != 0) {	// if tainted
 			/* mchen - save the mem access info: addr & val via calling a custom func*/
-			tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save the mem addr in eax
-			tcg_out_push(s, tcg_target_call_iarg_regs[1]); // save the val in edx
-			tcg_out_push(s, tcg_target_call_iarg_regs[2]); // save the mem size
-
-			tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[2], s_bits + x_st);
-			tcg_out_mov(s, TCG_TYPE_I32,
-			  tcg_target_call_iarg_regs[1], data_reg);
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem);
-
-			tcg_out_pop(s, tcg_target_call_iarg_regs[2]);
-			tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
-			tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
+//			tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save the mem addr in eax
+//			tcg_out_push(s, tcg_target_call_iarg_regs[1]); // save the val in edx
+//			tcg_out_push(s, tcg_target_call_iarg_regs[2]); // save the mem size
+//
+//			tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[2], s_bits + x_st);
+//			tcg_out_mov(s, TCG_TYPE_I32,
+//			  tcg_target_call_iarg_regs[1], data_reg);
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem);
+//
+//			tcg_out_pop(s, tcg_target_call_iarg_regs[2]);
+//			tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
+//			tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
 		}
     }
 #endif /* CONFIG_TCG_XTAINT */
@@ -1633,6 +1633,10 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
        functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
     tcg_out_pop(s, args[addrlo_idx]);
 
+#ifdef CONFIG_TCG_XTAINT
+    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
+#endif /* CONFIG_TCG_XTAINT */
+
     if (s_bits == 3)
       tcg_out_push(s, data_reg2);
     tcg_out_push(s, data_reg);
@@ -1671,20 +1675,17 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
 #ifdef CONFIG_TCG_XTAINT
     if(xtaint_save_temp_enabled){
 		if(cpu_single_env->tempidx != 0) {	// if tainted
+
 			/* mchen - save the mem access info: addr & val via calling a custom func*/
-			tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save the mem addr in eax
-			tcg_out_push(s, tcg_target_call_iarg_regs[1]); // save the val in edx
-			tcg_out_push(s, tcg_target_call_iarg_regs[2]); // save the mem size
+    		tcg_out_pushi(s, s_bits + x_ld); // save flag
+//			tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save mem addr
+			tcg_out_pushi(s, data_reg); // save dest reg idx
+			tcg_out_push(s, data_reg); // save mem val
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_tlbhit);
 
-			tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[2], s_bits + x_ld);
-			tcg_out_mov(s, TCG_TYPE_I32,
-			  tcg_target_call_iarg_regs[1], data_reg);
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem);
-
-			tcg_out_pop(s, tcg_target_call_iarg_regs[2]);
-			tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
-			tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
-		}
+			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+		} else
+			tcg_out_addi(s, TCG_REG_ESP, 0x4);
     }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -1704,6 +1705,10 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     /* AWH - Pop the virtual address off the stack */
     tcg_out_pop(s, args[addrlo_idx]);
 
+#ifdef CONFIG_TCG_XTAINT
+    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
+#endif /* CONFIG_TCG_XTAINT */
+
     /* XXX: move that code at the end of the TB */
     /* The first argument is already loaded with addrlo.  */
     arg_idx = 1;
@@ -1714,6 +1719,25 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[arg_idx],
                  mem_index);
     tcg_out_calli(s, (tcg_target_long)taint_qemu_ld_helpers[s_bits]);
+
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled){
+		if(cpu_single_env->tempidx != 0) {	// if tainted
+
+			/* mchen - save the mem access info: addr & val via calling a custom func*/
+    		tcg_out_pushi(s, s_bits + x_ld); // save flag
+			tcg_out_pushi(s, data_reg); // save dest reg idx
+			tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save mem val
+
+			tcg_out_push(s, TCG_REG_EAX);
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_tlbmiss);
+			tcg_out_pop(s, TCG_REG_EAX);
+
+			tcg_out_addi(s, TCG_REG_ESP, 16);
+		}else
+			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir mem addr push previously
+    }
+#endif /* CONFIG_TCG_XTAINT */
 
     switch(opc) {
     case 0 | 4:
