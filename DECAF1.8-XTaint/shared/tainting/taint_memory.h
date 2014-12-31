@@ -220,6 +220,8 @@ extern void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr);
 extern void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr);
 
 #ifdef CONFIG_TCG_XTAINT
+extern void XTAINT_save_mem_st_tlbhit();
+extern void XTAINT_save_mem_st_tlbmiss();
 extern void XTAINT_save_mem_tlbhit();
 extern void XTAINT_save_mem_tlbmiss();
 extern void XTAINT_log_temp();
