@@ -3,6 +3,12 @@
 #include <string.h> // For memset()
 #include "tcg.h"
 #include "taint_memory.h"
+
+#ifdef CONFIG_TCG_XTAINT
+#include "XTAINT_save_record.h"
+#include "XTAINT_log.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 #include "monitor.h" // For default_mon
 #include "DECAF_callback_common.h"
 #include "shared/DECAF_callback_to_QEMU.h"
@@ -489,100 +495,126 @@ void REGPARM __taint_stq_raw(unsigned long addr, gva_t vaddr) {
 }
 
 #ifdef CONFIG_TCG_XTAINT
+void XTAINT_save_mem_st(){
+	register int ebp asm("ebp"); // base register
+	uint32_t offset = 0x8; // start record addr relative to base reg
+
+	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8);
+	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0x4);
+	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0xc);
+	uint32_t *val = (uint32_t *)(ebp + offset);
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	*xtaint_ptr_cur_rcrd++ = *flag; // could be optimized further
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	xtaint_cur_pool_sz -= NUM_BYTE_SAVE;
+
+	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
+}
+
+void XTAINT_save_mem_ld(){
+	register int ebp asm("ebp"); // base register
+	uint32_t offset = 0x8; // start record addr relative to base reg
+
+	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8);
+	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0xc);
+	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0x4);
+	uint32_t *val = (uint32_t *)(ebp + offset);
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	*xtaint_ptr_cur_rcrd++ = *flag; // could be optimized further
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	xtaint_cur_pool_sz -= NUM_BYTE_SAVE;
+
+	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
+}
+
 void XTAINT_save_mem_tlbhit(){
-//	register int ebp asm("ebp");
-//	uint32_t offset = 0x8; // begin addr of data relative to ebp
-//
-//	uint32_t *val = (uint32_t *)(ebp + offset);
-//	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0x4); // dest reg idx
-//	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0xc); // src addr
-//	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8); // flag
-//
-//	*xtaint_ptr_cur_rcrd++ = *flag;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
-//	xtaint_ptr_cur_rcrd += 4;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
-//	xtaint_ptr_cur_rcrd += 4;
-//
-//	*xtaint_ptr_cur_rcrd++ = *flag;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
-//	xtaint_ptr_cur_rcrd += 4;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
-//	xtaint_ptr_cur_rcrd += 4;
-//
-//	xtaint_cur_pool_sz -= 18;
-//
-//	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
-//		// printf("threshold hit\n");
-//		xtaint_flush_to_file(xtaint_fp);
-//		xtaint_ptr_cur_rcrd = xtaint_pool;
-//		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
-//	}
+	register int ebp asm("ebp");
+	uint32_t offset = 0x8; // begin addr of data relative to ebp
+
+	uint32_t *val = (uint32_t *)(ebp + offset);
+	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0x4); // dest reg idx
+	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0xc); // src addr
+	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8); // flag
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	xtaint_cur_pool_sz -= 18;
+
+	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		// printf("threshold hit\n");
+		// xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
 }
 
 void XTAINT_save_mem_tlbmiss(){
-//	register int ebp asm("ebp");
-//	uint32_t offset = 0xc; // begin addr of data relative to ebp
-//
-//	uint32_t *val = (uint32_t *)(ebp + offset);
-//	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0x4); // dest reg idx
-//	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0xc); // src addr
-//	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8); // flag
-//
-//	*xtaint_ptr_cur_rcrd++ = *flag;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
-//	xtaint_ptr_cur_rcrd += 4;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
-//	xtaint_ptr_cur_rcrd += 4;
-//
-//	*xtaint_ptr_cur_rcrd++ = *flag;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
-//	xtaint_ptr_cur_rcrd += 4;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
-//	xtaint_ptr_cur_rcrd += 4;
-//
-//	xtaint_cur_pool_sz -= 18;
-//
-//	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
-//		// printf("threshold hit\n");
-//		xtaint_flush_to_file(xtaint_fp);
-//		xtaint_ptr_cur_rcrd = xtaint_pool;
-//		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
-//	}
-}
+	register int ebp asm("ebp");
+	uint32_t offset = 0xc; // begin addr of data relative to ebp
 
-void XTAINT_save_mem_st_tlbhit(){
-//	register int ebp asm("ebp");
-//	uint32_t offset = 0x8; // begin addr of data relative to ebp
-//
-//	uint32_t *val = (uint32_t *)(ebp + offset);
-//	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0x4); // dest reg idx
-//	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0xc); // src addr
-//	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8); // flag
-//
-//	*xtaint_ptr_cur_rcrd++ = *flag;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
-//	xtaint_ptr_cur_rcrd += 4;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
-//	xtaint_ptr_cur_rcrd += 4;
-//
-//	*xtaint_ptr_cur_rcrd++ = *flag;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
-//	xtaint_ptr_cur_rcrd += 4;
-//	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
-//	xtaint_ptr_cur_rcrd += 4;
-//
-//	xtaint_cur_pool_sz -= 18;
-//
-//	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
-//		// printf("threshold hit\n");
-//		// xtaint_flush_to_file(xtaint_fp);
-//		xtaint_ptr_cur_rcrd = xtaint_pool;
-//		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
-//	}
-}
+	uint32_t *val = (uint32_t *)(ebp + offset);
+	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0x4); // dest reg idx
+	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0xc); // src addr
+	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8); // flag
 
-void XTAINT_save_mem_st_tlbmiss(){
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	xtaint_cur_pool_sz -= 18;
+
+	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		// printf("threshold hit\n");
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
 }
 
 void XTAINT_log_temp(){

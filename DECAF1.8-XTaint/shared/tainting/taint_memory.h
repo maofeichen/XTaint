@@ -59,21 +59,21 @@ extern void qemu_free(void *ptr);
 #define BITPAGE_LEAF_POOL_SIZE 100
 #define BITPAGE_MIDDLE_POOL_SIZE 50
 
-#ifdef CONFIG_TCG_XTAINT
-extern int xtaint_save_temp_enabled;
+//#ifdef CONFIG_TCG_XTAINT
+//extern int xtaint_save_temp_enabled;
+//
+//#define XTAINT_MAX_POOL_SIZE (64 * 1024 * 1024)
+//#define XTAINT_POOL_THRESHOLD (1024 * 1024)
+//
+//extern uint8_t xtaint_pool[XTAINT_MAX_POOL_SIZE];
+//extern uint8_t *xtaint_ptr_cur_rcrd;
+//extern uint32_t xtaint_cur_pool_sz;
+//
+//extern FILE *xtaint_fp;
+//
+//extern void xtaint_flush_to_file(FILE *);
 
-#define XTAINT_MAX_POOL_SIZE (64 * 1024 * 1024)
-#define XTAINT_POOL_THRESHOLD (1024 * 1024)
-
-extern uint8_t xtaint_pool[XTAINT_MAX_POOL_SIZE];
-extern uint8_t *xtaint_ptr_cur_rcrd;
-extern uint32_t xtaint_cur_pool_sz;
-
-extern FILE *xtaint_fp;
-
-extern void xtaint_flush_to_file(FILE *);
-
-#endif /* CONFIG_TCG_XTAINT */
+//#endif /* CONFIG_TCG_XTAINT */
 
 /* Leaf node for holding memory taint information */
 typedef struct _tbitpage_leaf {
@@ -220,8 +220,8 @@ extern void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr);
 extern void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr);
 
 #ifdef CONFIG_TCG_XTAINT
-extern void XTAINT_save_mem_st_tlbhit();
-extern void XTAINT_save_mem_st_tlbmiss();
+extern void XTAINT_save_mem_st();
+extern void XTAINT_save_mem_ld();
 extern void XTAINT_save_mem_tlbhit();
 extern void XTAINT_save_mem_tlbmiss();
 extern void XTAINT_log_temp();

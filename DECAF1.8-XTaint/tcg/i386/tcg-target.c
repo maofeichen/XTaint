@@ -25,6 +25,11 @@
 #ifdef CONFIG_TCG_TAINT
 #include "tainting/taint_memory.h"
 //#include "TEMU_main.h"
+
+#ifdef CONFIG_TCG_XTAINT
+#include "tainting/XTAINT_save_record.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 #ifndef CONFIG_SOFTMMU
 #error "CONFIG_TCG_TAINT can only be enabled with a SOFTMMU target!"
 #endif /* CONFIG_SOFTMMU */
@@ -1465,6 +1470,9 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     int mem_index, s_bits;
     int stack_adjust;
     uint8_t *label_ptr[3];
+#ifdef CONFIG_TCG_XTAINT
+    int8_t flag = -1;
+#endif /* CONFIG_TCG_XTAINT */
 
     data_reg = args[0];
     addrlo_idx = 1;
@@ -1487,7 +1495,7 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     tcg_out_pop(s, args[addrlo_idx]);
 
 #ifdef CONFIG_TCG_XTAINT
-//    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
+    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again/
 #endif /* CONFIG_TCG_XTAINT */
 
     tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
@@ -1519,16 +1527,20 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
 
 #ifdef CONFIG_TCG_XTAINT
     if(xtaint_save_temp_enabled){
-//		if(cpu_single_env->tempidx != 0) {	// if tainted
-//			/* mchen - save the mem access info: addr & val via calling a custom func*/
-//    		tcg_out_pushi(s, s_bits + x_st); // save flag
-//			tcg_out_pushi(s, data_reg); // save src reg idx
-//			tcg_out_push(s, data_reg); // save mem val
-//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st_tlbhit);
-//
-//			tcg_out_addi(s, TCG_REG_ESP, 0x10);
-//		} else
-//			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir add push previously
+		if(cpu_single_env->tempidx != 0) {	// if tainted
+			switch(opc){
+			case 0: flag = X_BYTE + X_ST; break;
+			case 1: flag = X_WORD + X_ST; break;
+			case 2: flag = X_LONG + X_ST; break;
+			default: tcg_abort();
+			}
+    		tcg_out_pushi(s, flag); // save flag
+			tcg_out_pushi(s, data_reg); // save src reg idx
+			tcg_out_push(s, data_reg); // save src & dest val
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
+			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+		} else
+			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
     }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -1601,15 +1613,20 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
 #ifdef CONFIG_TCG_XTAINT
     if(xtaint_save_temp_enabled){
 		if(cpu_single_env->tempidx != 0) {	// if tainted
-			/* mchen - save the mem access info: addr & val via calling a custom func*/
-    		tcg_out_pushi(s, s_bits + x_st); // save flag
+			switch(opc){
+			case 0: flag = X_BYTE + X_ST; break;
+			case 1: flag = X_WORD + X_ST; break;
+			case 2: flag = X_LONG + X_ST; break;
+			default: tcg_abort();
+			}
+    		tcg_out_pushi(s, flag); // save flag
 			tcg_out_pushi(s, data_reg); // save src reg idx
-			tcg_out_push(s, data_reg); // save mem val
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st_tlbhit);
+			tcg_out_push(s, data_reg); // save src & dest val
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
 
 			tcg_out_addi(s, TCG_REG_ESP, 0x10);
 		} else
-			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir add push previously
+			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
     }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -1630,6 +1647,9 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     int addrlo_idx;
     int mem_index, s_bits, arg_idx;
     uint8_t *label_ptr[3];
+#ifdef CONFIG_TCG_XTAINT
+    int8_t flag = -1;
+#endif /* CONFIG_TCG_XTAINT */
 
     data_reg = args[0];
     addrlo_idx = 1;
@@ -1695,16 +1715,22 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
 #ifdef CONFIG_TCG_XTAINT
     if(xtaint_save_temp_enabled){
 		if(cpu_single_env->tempidx != 0) {	// if tainted
-			/* mchen - save the mem access info: addr & val via calling a custom func*/
-    		tcg_out_pushi(s, s_bits + x_ld); // save flag
-//			tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save mem addr
+			switch(s_bits) {
+			case 0:
+			case 0 | 4: flag = X_BYTE + X_LD; break;
+			case 1:
+			case 1 | 4: flag = X_WORD + X_LD; break;
+			case 2: flag = X_LONG + X_LD; break;
+			default: tcg_abort();
+			}
+    		tcg_out_pushi(s, flag); // save flag
 			tcg_out_pushi(s, data_reg); // save dest reg idx
-			tcg_out_push(s, data_reg); // save mem val
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_tlbhit);
+			tcg_out_push(s, data_reg); // save src & dest val
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
 
 			tcg_out_addi(s, TCG_REG_ESP, 0x10);
 		} else
-			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir add push previously
+			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
     }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -1738,24 +1764,6 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[arg_idx],
                  mem_index);
     tcg_out_calli(s, (tcg_target_long)taint_qemu_ld_helpers[s_bits]);
-
-#ifdef CONFIG_TCG_XTAINT
-    if(xtaint_save_temp_enabled){
-		if(cpu_single_env->tempidx != 0) {	// if tainted
-			/* mchen - save the mem access info: addr & val via calling a custom func*/
-    		tcg_out_pushi(s, s_bits + x_ld); // save flag
-			tcg_out_pushi(s, data_reg); // save dest reg idx
-			tcg_out_push(s, tcg_target_call_iarg_regs[0]); // save mem val
-
-			tcg_out_push(s, TCG_REG_EAX);
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_tlbmiss);
-			tcg_out_pop(s, TCG_REG_EAX);
-
-			tcg_out_addi(s, TCG_REG_ESP, 16);
-		}else
-			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir mem addr push previously
-    }
-#endif /* CONFIG_TCG_XTAINT */
 
     switch(opc) {
     case 0 | 4:
@@ -1793,6 +1801,31 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     default:
         tcg_abort();
     }
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled){
+		if(cpu_single_env->tempidx != 0) {	// if tainted
+			switch(s_bits) {
+			case 0:
+			case 0 | 4: flag = X_BYTE + X_LD; break;
+			case 1:
+			case 1 | 4: flag = X_WORD + X_LD; break;
+			case 2: flag = X_LONG + X_LD; break;
+			default: tcg_abort();
+			}
+    		tcg_out_pushi(s, flag); // save flag
+			tcg_out_pushi(s, data_reg); // save dest reg idx
+			tcg_out_push(s, data_reg); // save src & dest val
+
+//			tcg_out_push(s, TCG_REG_EAX);
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_tlbmiss);
+//			tcg_out_pop(s, TCG_REG_EAX);
+
+			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+		}else
+			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
+    }
+#endif /* CONFIG_TCG_XTAINT */
 
     /* label2: */
     *label_ptr[2] = s->code_ptr - label_ptr[2] - 1;
@@ -1840,8 +1873,16 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 			tcg_out_brcond32(s, TCG_COND_EQ, tcg_target_call_iarg_regs[0], ZERO, const_arg,
 								label_isTaint, small);
 
-			XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
-			XTAINT_saveTemp_byStack_genInsn(s, args, ots, size);
+			if(size < X_ST_POINTER ){
+				XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
+				XTAINT_saveTemp_byStack_genInsn(s, args, ots, size);
+			}
+			else{
+				size -= X_ST_POINTER;
+				XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
+				XTAINT_saveTemp_stPointer(s, args, ts, ots, size);
+			}
+
 
 //			tcg_out_push(s, TCG_REG_EBX);
 			tcg_out_push(s, TCG_REG_ECX);
@@ -1872,8 +1913,15 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 			tcg_out_brcond32(s, TCG_COND_EQ, src_shdw_reg, ZERO, const_arg,
 								label_isTaint, small);
 
-			XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
-			XTAINT_saveTemp_byStack_genInsn(s, args, ots, size);
+			if(size < X_ST_POINTER ){
+				XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
+				XTAINT_saveTemp_byStack_genInsn(s, args, ots, size);
+			}
+			else{
+				size -= X_ST_POINTER;
+				XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
+				XTAINT_saveTemp_stPointer(s, args, ts, ots, size);
+			}
 
 //			tcg_out_push(s, TCG_REG_EBX);
 			tcg_out_push(s, TCG_REG_ECX);
@@ -1895,8 +1943,15 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 //			printf("Source shadow val is as C\n");
 			if(ts_shdw->val != 0) { // if source shadow is tainted
 
-				XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
-				XTAINT_saveTemp_byStack_genInsn(s, args, ots, size);
+				if(size < X_ST_POINTER ){
+					XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
+					XTAINT_saveTemp_byStack_genInsn(s, args, ots, size);
+				}
+				else{
+					size -= X_ST_POINTER;
+					XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
+					XTAINT_saveTemp_stPointer(s, args, ts, ots, size);
+				}
 
 //				tcg_out_push(s, TCG_REG_EBX);
 				tcg_out_push(s, TCG_REG_ECX);
@@ -1928,8 +1983,8 @@ inline void XTAINT_saveTemp_byStack_genInsn(TCGContext *s, TCGArg *args,
 		case 16: flag = xdbyte; break;
 		case 32: flag = xword; break;
 		case 64: flag = xdword; break;
-		case xdword + x_ld: flag = xdword + x_ld; break;
-		case xdword + x_st: flag = xdword + x_st; break;
+		case X_LONG+ X_LD: flag = X_LONG + X_LD; break;
+		case X_LONG + X_ST: flag = X_LONG + X_ST; break;
 		default: printf("size error: %x\n", size); break;
 	}
 	switch(tmp->val_type){
@@ -1989,6 +2044,88 @@ inline void XTAINT_saveTemp_byStack_genInsn(TCGContext *s, TCGArg *args,
 			break;
 		default:
 			printf("Unknown temp type, %d\n", tmp->val_type);
+			break;
+	}
+}
+
+/* handle special case for saving destination of memory store operation with
+ * pointer as taint source. If pointer is tainted, save the (pointer, content)
+ * as source and destination. The record of content should be:
+ * flag: size
+ * addr: content of ts (the pointer itself)
+ * val: the content of ots */
+inline void XTAINT_saveTemp_stPointer(TCGContext *s, TCGArg *args, TCGTemp *ts,
+										TCGTemp *ots, uint32_t size){
+	int8_t flag;
+	switch(size){
+		case 8: flag = xbyte; break;
+		case 16: flag = xdbyte; break;
+		case 32: flag = xword; break;
+		case 64: flag = xdword; break;
+		case X_LONG+ X_LD: flag = X_LONG + X_LD; break;
+		case X_LONG + X_ST: flag = X_LONG + X_ST; break;
+		default: printf("size error: %x\n", size); break;
+	}
+
+	switch(ts->val_type){
+		case TEMP_VAL_DEAD:
+//			printf("ts is D\n");
+			break;
+		case TEMP_VAL_MEM:
+		{
+//			printf("ts val is as M\n");
+//			if(ts->mem_reg == 4) flag += xb_esp;
+//			else if(ts->mem_reg == 5) flag += xb_ebp;
+//			else printf("base reg neither esp nor ebp: %x\n", ts->mem_reg);
+			tcg_out_pushi(s, (int8_t)flag);
+			tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0], ts->mem_reg, ts->mem_offset);
+			tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+			switch(ots->val_type){
+				case TEMP_VAL_DEAD: break;
+				case TEMP_VAL_MEM:{
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0], ots->mem_reg, ots->mem_offset);
+					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+				} break;
+				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
+				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
+				default: printf("Unknown ots type, %d\n", ots->val_type); break;
+			}
+		}
+			break;
+		case TEMP_VAL_REG:
+		{
+			tcg_out_pushi(s, (int8_t)flag);
+			tcg_out_push(s, ts->reg);
+			switch(ots->val_type){
+				case TEMP_VAL_DEAD: break;
+				case TEMP_VAL_MEM:{
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0], ots->mem_reg, ots->mem_offset);
+					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+				} break;
+				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
+				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
+				default: printf("Unknown ots type, %d\n", ots->val_type); break;
+			}
+		}
+			break;
+		case TEMP_VAL_CONST:
+		{
+			tcg_out_pushi(s, (int8_t)flag);
+			tcg_out_pushi(s, ts->val);
+			switch(ots->val_type){
+				case TEMP_VAL_DEAD: break;
+				case TEMP_VAL_MEM:{
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0], ots->mem_reg, ots->mem_offset);
+					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+				} break;
+				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
+				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
+				default: printf("Unknown ots type, %d\n", ots->val_type); break;
+			}
+		}
+			break;
+		default:
+			printf("Unknown temp type, %d\n", ts->val_type);
 			break;
 	}
 }

@@ -33,6 +33,11 @@
 #include "DECAF_target.h"
 #ifdef CONFIG_TCG_TAINT
 #include "tainting/taint_memory.h"
+
+#ifdef CONFIG_TCG_XTAINT
+#include "tainting/XTAINT_log.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 #include "tainting/taintcheck_opt.h"
 #endif /* CONFIG_TCG_TAINT */
 

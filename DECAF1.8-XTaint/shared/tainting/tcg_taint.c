@@ -12,6 +12,10 @@
 #include "tcg.h"
 #include "tainting/tcg_taint.h"
 
+#ifdef CONFIG_TCG_XTAINT
+#include "tainting/XTAINT_save_record.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 #include "tainting/taint_memory.h"
 #include "config-target.h"
 
@@ -640,8 +644,9 @@ static inline int gen_taintcheck_insn(int search_pc)
               tcg_gen_or_i32(arg0, t0, t3);
 #endif /* TARGET_REG_BITS */
 #ifdef CONFIG_TCG_XTAINT
-              // Save another taint src: addr is tainted
-//              XTaint_instru_save_temp_two_opr_flag(orig0, orig1, arg1, xdword + x_ld);
+              // another taint src - pointer:
+              // pointer tainted ? save (pointer, reg) : ;
+              XTaint_instru_save_temp_two_opr_flag(orig0, orig1, arg1, X_LONG + X_LD);
 #endif
             } else
               /* Patch in opcode to load taint from tempidx */
@@ -811,9 +816,11 @@ static inline int gen_taintcheck_insn(int search_pc)
             gen_opparam_ptr[-2] = addr;
             gen_opparam_ptr[-3] = ret;
 #ifdef CONFIG_TCG_XTAINT
-            // Save another taint src: dest addr is tainted
-            // arg1 indicates if dest addr is tainted; src is ret
-            XTaint_instru_save_temp_two_opr_flag(addr, ret, arg1, xdword + x_st);
+            // Save another taint src - pointer:
+            // pointer tainted? save (pointer, content) : ;
+            if (taint_store_pointers_enabled)
+              if (arg1)
+					XTaint_instru_save_temp_two_opr_flag(ret, addr, arg1, X_ST_POINTER + X_LONG + X_ST);
 #endif
           }
         } else
@@ -2987,6 +2994,9 @@ inline void XTaint_instru_save_temp_two_opr(TCGv orig0, TCGv orig1, TCGv arg1){
 //    }
 }
 
+/* orig0: the target temp
+ * orig1: the source temp
+ * arg1: the shadow temp of source temp*/
 inline void XTaint_instru_save_temp_two_opr_flag(TCGv orig0, TCGv orig1,
 													TCGv arg1, int flag){
     if(orig1 != orig0) { /* only if src != dest continues */
