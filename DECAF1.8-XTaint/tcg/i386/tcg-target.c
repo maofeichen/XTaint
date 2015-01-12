@@ -1495,7 +1495,7 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     tcg_out_pop(s, args[addrlo_idx]);
 
 #ifdef CONFIG_TCG_XTAINT
-    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again/
+//    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again/
 #endif /* CONFIG_TCG_XTAINT */
 
     tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
@@ -1526,22 +1526,22 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
                            tcg_target_call_iarg_regs[0], 0, opc);
 
 #ifdef CONFIG_TCG_XTAINT
-    if(xtaint_save_temp_enabled){
-		if(cpu_single_env->tempidx != 0) {	// if tainted
-			switch(opc){
-			case 0: flag = X_BYTE + X_ST; break;
-			case 1: flag = X_WORD + X_ST; break;
-			case 2: flag = X_LONG + X_ST; break;
-			default: tcg_abort();
-			}
-    		tcg_out_pushi(s, flag); // save flag
-			tcg_out_pushi(s, data_reg); // save src reg idx
-			tcg_out_push(s, data_reg); // save src & dest val
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
-			tcg_out_addi(s, TCG_REG_ESP, 0x10);
-		} else
-			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
-    }
+//    if(xtaint_save_temp_enabled){
+//		if(cpu_single_env->tempidx != 0) {	// if tainted
+//			switch(opc){
+//			case 0: flag = X_BYTE + X_ST; break;
+//			case 1: flag = X_WORD + X_ST; break;
+//			case 2: flag = X_LONG + X_ST; break;
+//			default: tcg_abort();
+//			}
+//    		tcg_out_pushi(s, flag); // save flag
+//			tcg_out_pushi(s, data_reg); // save src reg idx
+//			tcg_out_push(s, data_reg); // save src & dest val
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
+//			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+//		} else
+//			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
+//    }
 #endif /* CONFIG_TCG_XTAINT */
 
     /* jmp label2 */
@@ -1561,7 +1561,7 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     tcg_out_pop(s, args[addrlo_idx]);
 
 #ifdef CONFIG_TCG_XTAINT
-    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
+//    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
 #endif /* CONFIG_TCG_XTAINT */
 
     /* XXX: move that code at the end of the TB */
@@ -1611,23 +1611,23 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     tcg_out_calli(s, (tcg_target_long)taint_qemu_st_helpers[s_bits]);
 
 #ifdef CONFIG_TCG_XTAINT
-    if(xtaint_save_temp_enabled){
-		if(cpu_single_env->tempidx != 0) {	// if tainted
-			switch(opc){
-			case 0: flag = X_BYTE + X_ST; break;
-			case 1: flag = X_WORD + X_ST; break;
-			case 2: flag = X_LONG + X_ST; break;
-			default: tcg_abort();
-			}
-    		tcg_out_pushi(s, flag); // save flag
-			tcg_out_pushi(s, data_reg); // save src reg idx
-			tcg_out_push(s, data_reg); // save src & dest val
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
-
-			tcg_out_addi(s, TCG_REG_ESP, 0x10);
-		} else
-			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
-    }
+//    if(xtaint_save_temp_enabled){
+//		if(cpu_single_env->tempidx != 0) {	// if tainted
+//			switch(opc){
+//			case 0: flag = X_BYTE + X_ST; break;
+//			case 1: flag = X_WORD + X_ST; break;
+//			case 2: flag = X_LONG + X_ST; break;
+//			default: tcg_abort();
+//			}
+//    		tcg_out_pushi(s, flag); // save flag
+//			tcg_out_pushi(s, data_reg); // save src reg idx
+//			tcg_out_push(s, data_reg); // save src & dest val
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
+//
+//			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+//		} else
+//			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
+//    }
 #endif /* CONFIG_TCG_XTAINT */
 
     if (stack_adjust == (TCG_TARGET_REG_BITS / 8)) {
@@ -1674,7 +1674,7 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     tcg_out_pop(s, args[addrlo_idx]);
 
 #ifdef CONFIG_TCG_XTAINT
-    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
+//    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
 #endif /* CONFIG_TCG_XTAINT */
 
     if (s_bits == 3)
@@ -1713,25 +1713,25 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
                            tcg_target_call_iarg_regs[0], 0, opc);
 
 #ifdef CONFIG_TCG_XTAINT
-    if(xtaint_save_temp_enabled){
-		if(cpu_single_env->tempidx != 0) {	// if tainted
-			switch(s_bits) {
-			case 0:
-			case 0 | 4: flag = X_BYTE + X_LD; break;
-			case 1:
-			case 1 | 4: flag = X_WORD + X_LD; break;
-			case 2: flag = X_LONG + X_LD; break;
-			default: tcg_abort();
-			}
-    		tcg_out_pushi(s, flag); // save flag
-			tcg_out_pushi(s, data_reg); // save dest reg idx
-			tcg_out_push(s, data_reg); // save src & dest val
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
-
-			tcg_out_addi(s, TCG_REG_ESP, 0x10);
-		} else
-			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
-    }
+//    if(xtaint_save_temp_enabled){
+//		if(cpu_single_env->tempidx != 0) {	// if tainted
+//			switch(s_bits) {
+//			case 0:
+//			case 0 | 4: flag = X_BYTE + X_LD; break;
+//			case 1:
+//			case 1 | 4: flag = X_WORD + X_LD; break;
+//			case 2: flag = X_LONG + X_LD; break;
+//			default: tcg_abort();
+//			}
+//    		tcg_out_pushi(s, flag); // save flag
+//			tcg_out_pushi(s, data_reg); // save dest reg idx
+//			tcg_out_push(s, data_reg); // save src & dest val
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
+//
+//			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+//		} else
+//			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
+//    }
 #endif /* CONFIG_TCG_XTAINT */
 
     /* jmp label2 */
@@ -1751,7 +1751,7 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     tcg_out_pop(s, args[addrlo_idx]);
 
 #ifdef CONFIG_TCG_XTAINT
-    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
+//    tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
 #endif /* CONFIG_TCG_XTAINT */
 
     /* XXX: move that code at the end of the TB */
@@ -1802,29 +1802,29 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
         tcg_abort();
     }
 #ifdef CONFIG_TCG_XTAINT
-    if(xtaint_save_temp_enabled){
-		if(cpu_single_env->tempidx != 0) {	// if tainted
-			switch(s_bits) {
-			case 0:
-			case 0 | 4: flag = X_BYTE + X_LD; break;
-			case 1:
-			case 1 | 4: flag = X_WORD + X_LD; break;
-			case 2: flag = X_LONG + X_LD; break;
-			default: tcg_abort();
-			}
-    		tcg_out_pushi(s, flag); // save flag
-			tcg_out_pushi(s, data_reg); // save dest reg idx
-			tcg_out_push(s, data_reg); // save src & dest val
-
-//			tcg_out_push(s, TCG_REG_EAX);
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
-//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_tlbmiss);
-//			tcg_out_pop(s, TCG_REG_EAX);
-
-			tcg_out_addi(s, TCG_REG_ESP, 0x10);
-		}else
-			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
-    }
+//    if(xtaint_save_temp_enabled){
+//		if(cpu_single_env->tempidx != 0) {	// if tainted
+//			switch(s_bits) {
+//			case 0:
+//			case 0 | 4: flag = X_BYTE + X_LD; break;
+//			case 1:
+//			case 1 | 4: flag = X_WORD + X_LD; break;
+//			case 2: flag = X_LONG + X_LD; break;
+//			default: tcg_abort();
+//			}
+//    		tcg_out_pushi(s, flag); // save flag
+//			tcg_out_pushi(s, data_reg); // save dest reg idx
+//			tcg_out_push(s, data_reg); // save src & dest val
+//
+////			tcg_out_push(s, TCG_REG_EAX);
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
+////			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_tlbmiss);
+////			tcg_out_pop(s, TCG_REG_EAX);
+//
+//			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+//		}else
+//			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
+//    }
 #endif /* CONFIG_TCG_XTAINT */
 
     /* label2: */
@@ -1983,9 +1983,9 @@ inline void XTAINT_saveTemp_byStack_genInsn(TCGContext *s, TCGArg *args,
 		case 16: flag = xdbyte; break;
 		case 32: flag = xword; break;
 		case 64: flag = xdword; break;
-		case X_LONG+ X_LD: flag = X_LONG + X_LD; break;
-		case X_LONG + X_ST: flag = X_LONG + X_ST; break;
-		default: printf("size error: %x\n", size); break;
+//		case X_LONG+ X_LD: flag = X_LONG + X_LD; break;
+//		case X_LONG + X_ST: flag = X_LONG + X_ST; break;
+		default: flag = size; break;
 	}
 	switch(tmp->val_type){
 		case TEMP_VAL_DEAD:
@@ -2062,9 +2062,9 @@ inline void XTAINT_saveTemp_stPointer(TCGContext *s, TCGArg *args, TCGTemp *ts,
 		case 16: flag = xdbyte; break;
 		case 32: flag = xword; break;
 		case 64: flag = xdword; break;
-		case X_LONG+ X_LD: flag = X_LONG + X_LD; break;
-		case X_LONG + X_ST: flag = X_LONG + X_ST; break;
-		default: printf("size error: %x\n", size); break;
+//		case X_LONG+ X_LD: flag = X_LONG + X_LD; break;
+//		case X_LONG + X_ST: flag = X_LONG + X_ST; break;
+		default: flag = size; break;
 	}
 
 	switch(ts->val_type){
