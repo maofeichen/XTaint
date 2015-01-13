@@ -2185,7 +2185,10 @@ static inline void tcg_gen_goto_tb(int idx)
 #ifdef CONFIG_TCG_TAINT
 
 #ifdef CONFIG_TCG_XTAINT
-static inline void tcg_gen_XTAINT_save_temp(TCGv src_shdw, TCGv src, TCGv dest, uint32_t flag)
+static inline void tcg_gen_XTAINT_save_temp(TCGv src_shdw,
+											TCGv src,
+											TCGv dest,
+											uint32_t flag)
 {
 	tcg_gen_op4_i32(INDEX_op_XTAINT_save_temp, src_shdw, src, dest, flag);
 }

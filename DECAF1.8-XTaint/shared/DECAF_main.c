@@ -36,15 +36,12 @@
 
 #ifdef CONFIG_TCG_XTAINT
 #include "tainting/XTAINT_log.h"
+#include <stdio.h>
+#include <stdlib.h>
 #endif /* CONFIG_TCG_XTAINT */
 
 #include "tainting/taintcheck_opt.h"
 #endif /* CONFIG_TCG_TAINT */
-
-#ifdef CONFIG_TCG_XTAINT
-#include <time.h>
-#include <stdio.h>
-#endif /* end CONFIG_TCG_XTAINT */
 
 #ifdef CONFIG_VMI_ENABLE
 extern void VMI_init(void);
@@ -647,14 +644,8 @@ static void convert_endian_4b(uint32_t *data)
 }
 
 #ifdef CONFIG_TCG_XTAINT
-//time_t t = time(NULL);
-//struct tm tm = *localtime(&t);
-//char date[15], y[5], m[3], d[3];
-//sprintf(y, "%d", tm.tm_year + 1900);
-//sprintf(m, "%d", tm.tm_mon + 1);
-//sprintf(d, "%d", tm.tm_mday);
-
-char *xtaint_fpath = "/home/user/Workspace-Ubuntu1004/Qemu/XTaint/Result/xtaint-save_mem.log";
+char *xtaint_fpath =
+		"/home/user/Workspace-Ubuntu1004/Qemu/XTaint/Result/xtaint-save_mem.log";
 
 void XTAINT_init(void) {
 	if((xtaint_fp = fopen(xtaint_fpath, "wa") ) == NULL){

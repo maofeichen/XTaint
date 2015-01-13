@@ -1846,7 +1846,7 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 	ts_shdw = &s->temps[args[0]];
 	ts = &s->temps[args[1]];
 	ots = &s->temps[args[2]];
-	uint32_t size = args[3];
+	int8_t size = args[3];
 
 	tcg_out_push(s, tcg_target_call_iarg_regs[0]);
 
@@ -1857,12 +1857,17 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 			break;
 		case TEMP_VAL_MEM:
 		{
-			// because push regs[0], the esp is -4 bytes, result in the relative addr of src shadow is not correct,
+			// because push regs[0], the esp is -4 bytes, result in the relative
+			// addr of src shadow is not correct,
 			// need to +4 byte to cancle
-			if(ts_shdw->mem_reg == 4) // only for esp
-				tcg_out_ld(s, ts_shdw->type, tcg_target_call_iarg_regs[0], ts_shdw->mem_reg, ts_shdw->mem_offset + 4);
+			if(ts_shdw->mem_reg == 0x4) // only for esp
+				tcg_out_ld(s, ts_shdw->type, tcg_target_call_iarg_regs[0],
+						ts_shdw->mem_reg,
+						ts_shdw->mem_offset + 0x4);
 			else
-				tcg_out_ld(s, ts_shdw->type, tcg_target_call_iarg_regs[0], ts_shdw->mem_reg, ts_shdw->mem_offset);
+				tcg_out_ld(s, ts_shdw->type, tcg_target_call_iarg_regs[0],
+						ts_shdw->mem_reg,
+						ts_shdw->mem_offset);
 			int label_isTaint;
 			label_isTaint = gen_new_label();
 			/* from qemu: Use SMALL != 0 to force a short forward branch.  */
@@ -1870,17 +1875,20 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 			int const_arg = 1; 	/* test */
 			TCGArg ZERO = 0;
 			/* if src shadow is tainted? */
-			tcg_out_brcond32(s, TCG_COND_EQ, tcg_target_call_iarg_regs[0], ZERO, const_arg,
-								label_isTaint, small);
+			tcg_out_brcond32(s, TCG_COND_EQ, tcg_target_call_iarg_regs[0],
+								ZERO,
+								const_arg,
+								label_isTaint,
+								small);
 
-			if(size < X_ST_POINTER ){
-				XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
-				XTAINT_saveTemp_byStack_genInsn(s, args, ots, size);
+			if(size < X_ST_POINTER ){ // if the instru is store pointer? N
+				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+				XTAINT_save_tmp_gen_insn(s, args, ots, size);
 			}
-			else{
+			else{ // Y
 				size -= X_ST_POINTER;
-				XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
-				XTAINT_saveTemp_stPointer(s, args, ts, ots, size);
+				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+				XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
 			}
 
 
@@ -1892,10 +1900,6 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 			tcg_out_pop(s, TCG_REG_ECX);
 //			tcg_out_pop(s, TCG_REG_EBX);
 			tcg_out_addi(s, TCG_REG_ESP, 24);
-
-			/* Test pass val via eax */
-//			tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[0], 0xffff);
-//			tcg_out_calli(s, (tcg_target_long)XTAINT_pTest_passByReg);
 
 			tcg_out_label(s, label_isTaint, (tcg_target_long)s->code_ptr);
 		}
@@ -1914,13 +1918,13 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 								label_isTaint, small);
 
 			if(size < X_ST_POINTER ){
-				XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
-				XTAINT_saveTemp_byStack_genInsn(s, args, ots, size);
+				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+				XTAINT_save_tmp_gen_insn(s, args, ots, size);
 			}
 			else{
 				size -= X_ST_POINTER;
-				XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
-				XTAINT_saveTemp_stPointer(s, args, ts, ots, size);
+				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+				XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
 			}
 
 //			tcg_out_push(s, TCG_REG_EBX);
@@ -1932,25 +1936,20 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 //			tcg_out_pop(s, TCG_REG_EBX);
 			tcg_out_addi(s, TCG_REG_ESP, 24);
 
-			/* Test pass val via eax */
-//			tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[0], 0xffff);
-//			tcg_out_calli(s, (tcg_target_long)XTAINT_pTest_passByReg);
-
 			tcg_out_label(s, label_isTaint, (tcg_target_long)s->code_ptr);
 		}
 			break;
 		case TEMP_VAL_CONST:
 //			printf("Source shadow val is as C\n");
 			if(ts_shdw->val != 0) { // if source shadow is tainted
-
 				if(size < X_ST_POINTER ){
-					XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
-					XTAINT_saveTemp_byStack_genInsn(s, args, ots, size);
+					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+					XTAINT_save_tmp_gen_insn(s, args, ots, size);
 				}
 				else{
 					size -= X_ST_POINTER;
-					XTAINT_saveTemp_byStack_genInsn(s, args, ts, size);
-					XTAINT_saveTemp_stPointer(s, args, ts, ots, size);
+					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+					XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
 				}
 
 //				tcg_out_push(s, TCG_REG_EBX);
@@ -1961,10 +1960,6 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 				tcg_out_pop(s, TCG_REG_ECX);
 //				tcg_out_pop(s, TCG_REG_EBX);
 				tcg_out_addi(s, TCG_REG_ESP, 24);
-
-				/* Test pass val via eax */
-//				tcg_out_movi(s, TCG_TYPE_I32, tcg_target_call_iarg_regs[0], 0xffff);
-//				tcg_out_calli(s, (tcg_target_long)XTAINT_pTest_passByReg);
 			}
 			break;
 		default:
@@ -1975,18 +1970,12 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 }
 
 /* generate instrument insn, passed via stack */
-inline void XTAINT_saveTemp_byStack_genInsn(TCGContext *s, TCGArg *args,
-										TCGTemp *tmp, uint32_t size){
-	int8_t flag;
-	switch(size){
-		case 8: flag = xbyte; break;
-		case 16: flag = xdbyte; break;
-		case 32: flag = xword; break;
-		case 64: flag = xdword; break;
-//		case X_LONG+ X_LD: flag = X_LONG + X_LD; break;
-//		case X_LONG + X_ST: flag = X_LONG + X_ST; break;
-		default: flag = size; break;
-	}
+inline void XTAINT_save_tmp_gen_insn(TCGContext *s,
+										TCGArg *args,
+										TCGTemp *tmp,
+										int8_t size){
+	int8_t flag = size;
+
 	switch(tmp->val_type){
 		case TEMP_VAL_DEAD:
 //			printf("Temp is D\n");
@@ -1994,27 +1983,28 @@ inline void XTAINT_saveTemp_byStack_genInsn(TCGContext *s, TCGArg *args,
 		case TEMP_VAL_MEM:
 		{
 //			printf("Temp val is as M\n");
-			if(tmp->mem_reg == 4) flag += xb_esp;
-			else if(tmp->mem_reg == 5) flag += xb_ebp;
+			if(tmp->mem_reg == 4) flag += X_BASE_ESP;
+			else if(tmp->mem_reg == 5) flag += X_BASE_EBP;
 			else printf("base reg neither esp nor ebp: %x\n", tmp->mem_reg);
-			tcg_out_pushi(s, (int8_t)flag);
+			tcg_out_pushi(s, flag);
 			tcg_out_pushi(s, tmp->mem_offset);
-			tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg, tmp->mem_offset);
+			tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+						tmp->mem_reg,
+						tmp->mem_offset);
 			tcg_out_push(s, tcg_target_call_iarg_regs[0]);
 		}
 			break;
 		case TEMP_VAL_REG:
 		{
 //			printf("Temp val is as Reg\n");
-//			tcg_out_pushi(s, flag);
 			if(tmp->mem_allocated == 1 && tmp->mem_reg == 5) {
-				flag += xb_ebp;
-				tcg_out_pushi(s, (int8_t)flag);
+				flag += X_BASE_EBP;
+				tcg_out_pushi(s, flag);
 				tcg_out_pushi(s, tmp->mem_offset);
 //				tcg_out_pushi(s, tmp->name);
 				tcg_out_push(s, tmp->reg);
 			} else {
-				tcg_out_pushi(s, (int8_t)flag);
+				tcg_out_pushi(s, flag);
 				tcg_out_pushi(s, tmp->reg);
 				tcg_out_push(s, tmp->reg);
 			}
@@ -2023,20 +2013,19 @@ inline void XTAINT_saveTemp_byStack_genInsn(TCGContext *s, TCGArg *args,
 		case TEMP_VAL_CONST:
 		{
 //			printf("Temp val is as C\n");
-//			tcg_out_pushi(s, flag);
 			if(tmp->mem_allocated == 1 && tmp->mem_reg == 5) {
-				flag += xb_ebp;
-				tcg_out_pushi(s, (int8_t)flag);
+				flag += X_BASE_EBP;
+				tcg_out_pushi(s, flag);
 				tcg_out_pushi(s, tmp->mem_offset);
 //				tcg_out_pushi(s, tmp->name);
 				tcg_out_pushi(s, tmp->val);
 			}else if(s->reg_to_temp[tmp->reg] == args[1] )	{
-				tcg_out_pushi(s, (int8_t)flag);
+				tcg_out_pushi(s, flag);
 				tcg_out_pushi(s, tmp->reg);
 				tcg_out_pushi(s, tmp->val);
 			}
 			else {
-				tcg_out_pushi(s, (int8_t)flag);
+				tcg_out_pushi(s, flag);
 				tcg_out_pushi(s, 0x004e4f43);
 				tcg_out_pushi(s, tmp->val);
 			}
@@ -2054,18 +2043,12 @@ inline void XTAINT_saveTemp_byStack_genInsn(TCGContext *s, TCGArg *args,
  * flag: size
  * addr: content of ts (the pointer itself)
  * val: the content of ots */
-inline void XTAINT_saveTemp_stPointer(TCGContext *s, TCGArg *args, TCGTemp *ts,
-										TCGTemp *ots, uint32_t size){
-	int8_t flag;
-	switch(size){
-		case 8: flag = xbyte; break;
-		case 16: flag = xdbyte; break;
-		case 32: flag = xword; break;
-		case 64: flag = xdword; break;
-//		case X_LONG+ X_LD: flag = X_LONG + X_LD; break;
-//		case X_LONG + X_ST: flag = X_LONG + X_ST; break;
-		default: flag = size; break;
-	}
+inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
+										TCGArg *args,
+										TCGTemp *ts,
+										TCGTemp *ots,
+										int8_t size){
+	int8_t flag = size;
 
 	switch(ts->val_type){
 		case TEMP_VAL_DEAD:
@@ -2073,33 +2056,35 @@ inline void XTAINT_saveTemp_stPointer(TCGContext *s, TCGArg *args, TCGTemp *ts,
 			break;
 		case TEMP_VAL_MEM:
 		{
-//			printf("ts val is as M\n");
-//			if(ts->mem_reg == 4) flag += xb_esp;
-//			else if(ts->mem_reg == 5) flag += xb_ebp;
-//			else printf("base reg neither esp nor ebp: %x\n", ts->mem_reg);
-			tcg_out_pushi(s, (int8_t)flag);
-			tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0], ts->mem_reg, ts->mem_offset);
+			tcg_out_pushi(s, flag);
+			tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0],
+					ts->mem_reg,
+					ts->mem_offset); // save addr, which in source content
 			tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-			switch(ots->val_type){
+			switch(ots->val_type){ // save content
 				case TEMP_VAL_DEAD: break;
 				case TEMP_VAL_MEM:{
-					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0], ots->mem_reg, ots->mem_offset);
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+								ots->mem_reg,
+								ots->mem_offset);
 					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
 				} break;
 				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
 				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
-				default: printf("Unknown ots type, %d\n", ots->val_type); break;
+				default: printf("Unknown ts/ots type, %d\n", ots->val_type); break;
 			}
 		}
 			break;
 		case TEMP_VAL_REG:
 		{
-			tcg_out_pushi(s, (int8_t)flag);
-			tcg_out_push(s, ts->reg);
+			tcg_out_pushi(s, flag);
+			tcg_out_push(s, ts->reg); // save addr
 			switch(ots->val_type){
 				case TEMP_VAL_DEAD: break;
 				case TEMP_VAL_MEM:{
-					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0], ots->mem_reg, ots->mem_offset);
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+								ots->mem_reg,
+								ots->mem_offset);
 					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
 				} break;
 				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
@@ -2110,12 +2095,14 @@ inline void XTAINT_saveTemp_stPointer(TCGContext *s, TCGArg *args, TCGTemp *ts,
 			break;
 		case TEMP_VAL_CONST:
 		{
-			tcg_out_pushi(s, (int8_t)flag);
+			tcg_out_pushi(s, flag);
 			tcg_out_pushi(s, ts->val);
 			switch(ots->val_type){
 				case TEMP_VAL_DEAD: break;
 				case TEMP_VAL_MEM:{
-					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0], ots->mem_reg, ots->mem_offset);
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+								ots->mem_reg,
+								ots->mem_offset);
 					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
 				} break;
 				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;

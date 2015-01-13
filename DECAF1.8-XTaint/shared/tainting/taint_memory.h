@@ -8,17 +8,8 @@ extern "C" {
 #endif /* __cplusplus */
 
 #ifdef CONFIG_TCG_XTAINT
-#define xbyte 0x0
-#define xdbyte 0x1
-#define xword 0x2
-#define xdword 0x3
-#define xb_esp 0x4
-#define xb_ebp 0x8
-#define x_ld 0xc
-#define x_st 0xf0
-
 extern int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data);
-#endif
+#endif /* CONFIG_TCG_XTAINT */
 
 /* These were originally in TEMU_main.h */
 extern int do_enable_tainting(Monitor *mon, const QDict *qdict, QObject **ret_data);
@@ -58,22 +49,6 @@ extern void qemu_free(void *ptr);
   following two defines. */
 #define BITPAGE_LEAF_POOL_SIZE 100
 #define BITPAGE_MIDDLE_POOL_SIZE 50
-
-//#ifdef CONFIG_TCG_XTAINT
-//extern int xtaint_save_temp_enabled;
-//
-//#define XTAINT_MAX_POOL_SIZE (64 * 1024 * 1024)
-//#define XTAINT_POOL_THRESHOLD (1024 * 1024)
-//
-//extern uint8_t xtaint_pool[XTAINT_MAX_POOL_SIZE];
-//extern uint8_t *xtaint_ptr_cur_rcrd;
-//extern uint32_t xtaint_cur_pool_sz;
-//
-//extern FILE *xtaint_fp;
-//
-//extern void xtaint_flush_to_file(FILE *);
-
-//#endif /* CONFIG_TCG_XTAINT */
 
 /* Leaf node for holding memory taint information */
 typedef struct _tbitpage_leaf {
@@ -225,7 +200,6 @@ extern void XTAINT_save_mem_ld();
 extern void XTAINT_save_mem_tlbhit();
 extern void XTAINT_save_mem_tlbmiss();
 extern void XTAINT_log_temp();
-//extern void REGPARM XTAINT_pTest_passByReg(uint32_t eax);
 #endif /* CONFIG_TCG_XTAINT */
 
 #endif /* CONFIG_TCG_TAINT */
