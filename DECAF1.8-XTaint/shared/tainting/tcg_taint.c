@@ -842,11 +842,14 @@ static inline int gen_taintcheck_insn(int search_pc)
 #ifdef CONFIG_TCG_XTAINT
             // Save another taint src - pointer:
             // pointer tainted? save (pointer, content) : ;
-            if (taint_store_pointers_enabled)
-              if (arg1)
-            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, flag);
+            if (taint_store_pointers_enabled){
+              if (arg1){
+//            	  ;
+            	  XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag);
 //            	  XTaint_save_tmp_two_oprnd_flag(ret, addr, arg1, flag);
-#endif
+              }
+            }
+#endif /* CONFIG_TCG_XTAINT */
           }
         } else
           tcg_abort();

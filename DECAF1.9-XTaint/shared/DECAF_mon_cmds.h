@@ -123,5 +123,14 @@ http://code.google.com/p/decaf-platform/
         .help       = "Turn on/off tainting of pointers (load) (store)",
         .mhandler.cmd_new = do_taint_pointers,
 },
+#ifdef CONFIG_TCG_XTAINT
+{
+        .name       = "xtaint_save_temp",
+        .args_type  = "load:b",
+        .params     = "on|off",
+        .help       = "Turn on/off xtaint save temporary",
+        .mhandler.cmd_new = xtaint_do_save_temp,
+},
+#endif
 #endif /* CONFIG_TCG_TAINT */
 

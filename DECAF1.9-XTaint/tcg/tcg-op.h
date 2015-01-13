@@ -2183,6 +2183,17 @@ static inline void tcg_gen_goto_tb(int idx)
 }
 
 #ifdef CONFIG_TCG_TAINT
+
+#ifdef CONFIG_TCG_XTAINT
+static inline void tcg_gen_XTAINT_save_temp(TCGv src_shdw,
+											TCGv src,
+											TCGv dest,
+											uint32_t flag)
+{
+	tcg_gen_op4_i32(INDEX_op_XTAINT_save_temp, src_shdw, src, dest, flag);
+}
+#endif /*CONFIG_TCG_XTAINT */
+
 #if TCG_TARGET_REG_BITS == 32
 static inline void tcg_gen_DECAF_checkeip(tcg_target_long val1 ,tcg_target_long val2)
 {

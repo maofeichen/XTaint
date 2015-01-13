@@ -80,8 +80,15 @@ static void tcg_out_ld(TCGContext *s, TCGType type, TCGReg ret, TCGReg arg1,
 static void tcg_out_mov(TCGContext *s, TCGType type, TCGReg ret, TCGReg arg);
 static void tcg_out_movi(TCGContext *s, TCGType type,
                          TCGReg ret, tcg_target_long arg);
+
+#ifdef CONFIG_TCG_XTAINT
+static void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args,
+                       const int *const_args, const TCGArg *old_args);
+#else
 static void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args,
                        const int *const_args);
+#endif /* CONFIG_TCG_XTAINT */
+
 static void tcg_out_st(TCGContext *s, TCGType type, TCGReg arg, TCGReg arg1,
                        tcg_target_long arg2);
 static int tcg_target_const_match(tcg_target_long val,
@@ -1856,7 +1863,12 @@ static void tcg_reg_alloc_op(TCGContext *s,
     }
 
     /* emit instruction */
+#ifdef CONFIG_TCG_XTAINT
+    /* Add old args, which is the index in temps */
+    tcg_out_op(s, opc, new_args, const_args, args);
+#else
     tcg_out_op(s, opc, new_args, const_args);
+#endif
     
     /* move the outputs in the correct register if needed */
     for(i = 0; i < nb_oargs; i++) {
@@ -2024,7 +2036,11 @@ static int tcg_reg_alloc_call(TCGContext *s, const TCGOpDef *def,
         save_globals(s, allocated_regs);
     }
 
+#ifdef CONFIG_TCG_XTAINT
+    tcg_out_op(s, opc, &func_arg, &const_func_arg, args);
+#else
     tcg_out_op(s, opc, &func_arg, &const_func_arg);
+#endif
 
     /* assign output registers and emit moves if needed */
     for(i = 0; i < nb_oargs; i++) {
@@ -2178,6 +2194,11 @@ static inline int tcg_gen_code_common(TCGContext *s, uint8_t *gen_code_buf,
             goto next;
         case INDEX_op_end:
             goto the_end;
+#ifdef CONFIG_TCG_XTAINT
+		case INDEX_op_XTAINT_save_temp:
+			tcg_out_XTAINT_save_temp(s, args);
+			break;
+#endif /* CONFIG_TCG_XTAINT */
         default:
             /* Sanity check that we've not introduced any unhandled opcodes. */
             if (def->flags & TCG_OPF_NOT_PRESENT) {
