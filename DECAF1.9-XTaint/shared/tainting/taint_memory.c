@@ -356,6 +356,11 @@ void REGPARM __taint_stb_raw_paddr(ram_addr_t addr,gva_t vaddr) {
 		before = *(uint8_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
 		*(uint8_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)) =
 				cpu_single_env->tempidx & 0xFF;
+#ifdef CONFIG_TCG_XTAINT
+//		*(uint8_t *) (leaf_node->size + (addr & LEAF_ADDRESS_MASK)) = X_BYTE;
+//		*(uint32_t *) (leaf_node->gva_map + (addr & LEAF_ADDRESS_MASK) ) =
+//				vaddr;
+#endif /* CONFIG_TCG_XTAINT */
 		after = *(uint8_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
     if ((before != after) || (cpu_single_env->tempidx & 0xFF)) changed = 1;
   }
@@ -382,6 +387,11 @@ void REGPARM __taint_stw_raw_paddr(ram_addr_t addr,gva_t vaddr) {
 		before = *(uint16_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
 		*(uint16_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)) =
 				(uint16_t) cpu_single_env->tempidx & 0xFFFF;
+#ifdef CONFIG_TCG_XTAINT
+//		*(uint8_t *) (leaf_node->size + (addr & LEAF_ADDRESS_MASK)) = X_WORD;
+//		*(uint32_t *) (leaf_node->gva_map + (addr & LEAF_ADDRESS_MASK) ) =
+//				vaddr;
+#endif /* CONFIG_TCG_XTAINT */
     after = *(uint16_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
     if ((before != after) || (cpu_single_env->tempidx & 0xFFFF)) changed = 1;
 	}
@@ -409,6 +419,11 @@ void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr) {
 		before = *(uint32_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
 		*(uint32_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)) =
 				cpu_single_env->tempidx & 0xFFFFFFFF;
+#ifdef CONFIG_TCG_XTAINT
+//		*(uint8_t *) (leaf_node->size + (addr & LEAF_ADDRESS_MASK)) = X_LONG;
+//		*(uint32_t *) (leaf_node->gva_map + (addr & LEAF_ADDRESS_MASK) ) =
+//				vaddr;
+#endif /* CONFIG_TCG_XTAINT */
 		after = *(uint32_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
 		if ((before != after) || (cpu_single_env->tempidx & 0xFFFFFFFF)) changed = 1;
 	}
@@ -666,6 +681,46 @@ int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data) {
 				"save temp changed -> %s\n",
 				xtaint_save_temp_enabled ? "ON " : "OFF");
 	}
+	return 0;
+}
+
+int xtaint_do_disp_taint_mem(Monitor *mon,
+								const QDict *qdict,
+								QObject **ret_data){
+	uint32_t leaf_index;
+	uint32_t middle_index;
+	tbitpage_middle_t *middle_node = NULL;
+	tbitpage_leaf_t *leaf_node = NULL;
+	int i;
+
+	if (!taint_memory_page_table || !taint_tracking_enabled){
+		monitor_printf(default_mon, "shadow page table does not exist or taint \
+				checking is disable\n");
+		return 0;
+	}
+
+//	DECAF_stop_vm();
+//	for (middle_index = 0; middle_index < taint_memory_page_table_root_size;
+//			middle_index++) {
+//		middle_node = taint_memory_page_table[middle_index];
+//		if (middle_node) {
+//			for (leaf_index = 0; leaf_index < (2 << BITPAGE_MIDDLE_BITS);
+//					leaf_index++) {
+//				leaf_node = middle_node->leaf[leaf_index];
+//				if (leaf_node) {
+//					for (i = 0; i < (2 << BITPAGE_LEAF_BITS); i++) {
+//						if ( leaf_node->gva_map[i] && leaf_node->bitmap[i]){
+//							monitor_printf(default_mon, "Tainted Info: \
+//									Vir Mem Addr: 0x%x, \
+//									Size: 0x%x\n", leaf_node->gva_map[i], \
+//									leaf_node->size[i]);
+//						}
+//					}
+//				}
+//			}
+//		}
+//	}
+//	DECAF_start_vm();
 	return 0;
 }
 #endif /* CONFIG_TCG_XTAINT */

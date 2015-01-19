@@ -8,7 +8,12 @@ extern "C" {
 #endif /* __cplusplus */
 
 #ifdef CONFIG_TCG_XTAINT
+//#include "XTAINT_disp_taint.h"
+#endif /* CONFIG_TCG_XTAINT */
+
+#ifdef CONFIG_TCG_XTAINT
 extern int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data);
+extern int xtaint_do_disp_taint_mem(Monitor *mon, const QDict *qdict, QObject **ret_data);
 #endif /* CONFIG_TCG_XTAINT */
 
 /* These were originally in TEMU_main.h */
@@ -53,6 +58,10 @@ extern void qemu_free(void *ptr);
 /* Leaf node for holding memory taint information */
 typedef struct _tbitpage_leaf {
   uint8_t bitmap[2 << BITPAGE_LEAF_BITS]; /* This is the bitwise tainting data for the page */
+#ifdef CONFIG_TCG_XTAINT
+//  gva_t gva_map[2 << BITPAGE_LEAF_BITS];
+//  uint8_t size[2 << BITPAGE_LEAF_BITS];
+#endif /* CONFIG_TCG_XTAINT */
 } tbitpage_leaf_t;
 
 /* Middle node for holding memory taint information */
