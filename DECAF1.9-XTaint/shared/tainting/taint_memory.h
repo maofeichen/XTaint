@@ -7,6 +7,15 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#ifdef CONFIG_TCG_XTAINT
+//#include "XTAINT_disp_taint.h"
+#endif /* CONFIG_TCG_XTAINT */
+
+#ifdef CONFIG_TCG_XTAINT
+extern int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data);
+extern int xtaint_do_disp_taint_mem(Monitor *mon, const QDict *qdict, QObject **ret_data);
+#endif /* CONFIG_TCG_XTAINT */
+
 /* These were originally in TEMU_main.h */
 extern int do_enable_tainting(Monitor *mon, const QDict *qdict, QObject **ret_data);
 extern int do_disable_tainting(Monitor *mon, const QDict *qdict, QObject **ret_data);
@@ -189,6 +198,14 @@ extern void REGPARM __taint_stb_raw_paddr(ram_addr_t addr,gva_t vaddr);
 extern void REGPARM __taint_stw_raw_paddr(ram_addr_t addr,gva_t vaddr);
 extern void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr);
 extern void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr);
+
+#ifdef CONFIG_TCG_XTAINT
+extern void XTAINT_save_mem_st();
+extern void XTAINT_save_mem_ld();
+extern void XTAINT_save_mem_tlbhit();
+extern void XTAINT_save_mem_tlbmiss();
+extern void XTAINT_log_temp();
+#endif /* CONFIG_TCG_XTAINT */
 
 #endif /* CONFIG_TCG_TAINT */
 #ifdef __cplusplus

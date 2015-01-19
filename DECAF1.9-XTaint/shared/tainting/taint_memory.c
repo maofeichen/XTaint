@@ -3,6 +3,12 @@
 #include <string.h> // For memset()
 #include "tcg.h"
 #include "taint_memory.h"
+
+#ifdef CONFIG_TCG_XTAINT
+#include "XTAINT_save_record.h"
+#include "XTAINT_log.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 #include "monitor.h" // For default_mon
 #include "DECAF_callback_common.h"
 #include "shared/DECAF_callback_to_QEMU.h"
@@ -27,6 +33,16 @@ tbitpage_leaf_pool_t leaf_pool;
 tbitpage_middle_pool_t middle_pool;
 const uint32_t LEAF_ADDRESS_MASK = (2 << BITPAGE_LEAF_BITS) - 1;
 const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1; 
+
+#ifdef CONFIG_TCG_XTAINT
+int xtaint_save_temp_enabled = 0;	// enable save temp or not
+
+uint8_t xtaint_pool[XTAINT_MAX_POOL_SIZE];
+uint8_t *xtaint_ptr_cur_rcrd = xtaint_pool;
+uint32_t xtaint_cur_pool_sz = XTAINT_POOL_THRESHOLD;
+
+FILE *xtaint_fp = NULL;
+#endif /* CONFIG_TCG_XTAINT */
 
 void allocate_leaf_pool(void) {
   int i;
@@ -144,6 +160,31 @@ static void free_taint_memory_page_table(void) {
   taint_memory_page_table = NULL;
   free_pools();
 }
+
+#ifdef CONFIG_TCG_XTAINT
+
+void xtaint_flush_to_file(FILE *xtaint_fp) {
+	uint8_t *i_ptr = xtaint_pool;
+
+	while(i_ptr < xtaint_ptr_cur_rcrd){
+		fprintf(xtaint_fp, "%x\t", *i_ptr++);	// src_flag
+		fprintf(xtaint_fp, "%x\t", *(uint32_t *)i_ptr);	// src_addr
+		i_ptr += 4;
+		fprintf(xtaint_fp, "%x\t", *(uint32_t *)i_ptr);	// src_val
+		i_ptr += 4;
+
+		fprintf(xtaint_fp, "%x\t", *i_ptr++);	// des_flag
+		fprintf(xtaint_fp, "%x\t", *(uint32_t *)i_ptr);	// des_addr
+		i_ptr += 4;
+		fprintf(xtaint_fp, "%x\t", *(uint32_t *)i_ptr);	// des_val
+		i_ptr += 4;
+
+		fprintf(xtaint_fp, "\n");
+	}
+//	fprintf(xtaint_fp, "\n");
+}
+
+#endif /* CONFIG_TCG_XTAINT */
 
 void REGPARM __taint_ldb_raw_paddr(ram_addr_t addr,gva_t vaddr)
 {
@@ -453,6 +494,221 @@ void REGPARM __taint_stq_raw(unsigned long addr, gva_t vaddr) {
 	__taint_stq_raw_paddr(addr, vaddr);
 }
 
+#ifdef CONFIG_TCG_XTAINT
+void XTAINT_save_mem_st(){
+	register int ebp asm("ebp"); // base register
+	uint32_t offset = 0x8; // start record addr relative to base reg
+
+	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8);
+	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0x4);
+	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0xc);
+	uint32_t *val = (uint32_t *)(ebp + offset);
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	*xtaint_ptr_cur_rcrd++ = *flag; // could be optimized further
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	xtaint_cur_pool_sz -= NUM_BYTE_SAVE;
+
+	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
+}
+
+void XTAINT_save_mem_ld(){
+	register int ebp asm("ebp"); // base register
+	uint32_t offset = 0x8; // start record addr relative to base reg
+
+	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8);
+	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0xc);
+	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0x4);
+	uint32_t *val = (uint32_t *)(ebp + offset);
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	*xtaint_ptr_cur_rcrd++ = *flag; // could be optimized further
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	xtaint_cur_pool_sz -= NUM_BYTE_SAVE;
+
+	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
+}
+
+void XTAINT_save_mem_tlbhit(){
+	register int ebp asm("ebp");
+	uint32_t offset = 0x8; // begin addr of data relative to ebp
+
+	uint32_t *val = (uint32_t *)(ebp + offset);
+	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0x4); // dest reg idx
+	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0xc); // src addr
+	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8); // flag
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	xtaint_cur_pool_sz -= 18;
+
+	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		// printf("threshold hit\n");
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
+}
+
+void XTAINT_save_mem_tlbmiss(){
+	register int ebp asm("ebp");
+	uint32_t offset = 0xc; // begin addr of data relative to ebp
+
+	uint32_t *val = (uint32_t *)(ebp + offset);
+	uint32_t *dest_addr = (uint32_t *)(ebp + offset + 0x4); // dest reg idx
+	uint32_t *src_addr = (uint32_t *)(ebp + offset + 0xc); // src addr
+	uint8_t *flag = (uint8_t *)(ebp + offset + 0x8); // flag
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	*xtaint_ptr_cur_rcrd++ = *flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *dest_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	xtaint_cur_pool_sz -= 18;
+
+	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		// printf("threshold hit\n");
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
+}
+
+void XTAINT_log_temp(){
+	register int ebp asm("ebp");
+
+	uint32_t *des_val = (uint32_t *)(ebp + 16);
+	uint32_t *des_addr = (uint32_t *)(ebp + 20);
+	uint8_t *des_flag = (uint8_t *)(ebp + 24);
+
+	uint32_t *src_val = (uint32_t *)(ebp + 28);
+	uint32_t *src_addr = (uint32_t *)(ebp + 32);
+	uint8_t *src_flag = (uint8_t *)(ebp + 36);
+
+	*xtaint_ptr_cur_rcrd++ = *src_flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *src_val;
+	xtaint_ptr_cur_rcrd += 4;
+	*xtaint_ptr_cur_rcrd++ = *des_flag;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *des_addr;
+	xtaint_ptr_cur_rcrd += 4;
+	*(uint32_t *)xtaint_ptr_cur_rcrd = *des_val;
+	xtaint_ptr_cur_rcrd += 4;
+
+	xtaint_cur_pool_sz -= 18;
+
+	if(xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		// printf("threshold hit\n");
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
+
+//	printf("Ptemp: src flag, src addr, src val is: %x, \t%x, \t%x\n", *src_flag, *src_addr, *src_val);
+//	printf("Ptemp: des flag, des addr, des val is: %x, \t%x, \t%x\n", *des_flag, *des_addr, *des_val);
+}
+
+int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data) {
+	if (!taint_tracking_enabled)
+		monitor_printf(default_mon, "Ignored, taint tracking is disabled\n");
+	else {
+		CPUState *env;
+		DECAF_stop_vm();
+		env = cpu_single_env ? cpu_single_env : first_cpu;
+		xtaint_save_temp_enabled = qdict_get_bool(qdict, "load");
+		DECAF_start_vm();
+		tb_flush(env);
+		monitor_printf(default_mon,
+				"save temp changed -> %s\n",
+				xtaint_save_temp_enabled ? "ON " : "OFF");
+	}
+	return 0;
+}
+
+int xtaint_do_disp_taint_mem(Monitor *mon,
+								const QDict *qdict,
+								QObject **ret_data){
+	uint32_t leaf_index;
+	uint32_t middle_index;
+	tbitpage_middle_t *middle_node = NULL;
+	tbitpage_leaf_t *leaf_node = NULL;
+	int i;
+
+	if (!taint_memory_page_table || !taint_tracking_enabled){
+		monitor_printf(default_mon, "shadow page table does not exist or taint \
+				checking is disable\n");
+		return 0;
+	}
+
+//	DECAF_stop_vm();
+//	for (middle_index = 0; middle_index < taint_memory_page_table_root_size;
+//			middle_index++) {
+//		middle_node = taint_memory_page_table[middle_index];
+//		if (middle_node) {
+//			for (leaf_index = 0; leaf_index < (2 << BITPAGE_MIDDLE_BITS);
+//					leaf_index++) {
+//				leaf_node = middle_node->leaf[leaf_index];
+//				if (leaf_node) {
+//					for (i = 0; i < (2 << BITPAGE_LEAF_BITS); i++) {
+//						if ( leaf_node->gva_map[i] && leaf_node->bitmap[i]){
+//							monitor_printf(default_mon, "Tainted Info: \
+//									Vir Mem Addr: 0x%x, \
+//									Size: 0x%x\n", leaf_node->gva_map[i], \
+//									leaf_node->size[i]);
+//						}
+//					}
+//				}
+//			}
+//		}
+//	}
+//	DECAF_start_vm();
+	return 0;
+}
+#endif /* CONFIG_TCG_XTAINT */
 
 uint32_t calc_tainted_bytes(void){
 	uint32_t tainted_bytes, i;

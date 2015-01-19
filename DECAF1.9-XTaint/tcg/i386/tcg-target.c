@@ -25,6 +25,11 @@
 #ifdef CONFIG_TCG_TAINT
 #include "tainting/taint_memory.h"
 //#include "TEMU_main.h"
+
+#ifdef CONFIG_TCG_XTAINT
+#include "tainting/XTAINT_save_record.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 #ifndef CONFIG_SOFTMMU
 #error "CONFIG_TCG_TAINT can only be enabled with a SOFTMMU target!"
 #endif /* CONFIG_SOFTMMU */
@@ -1648,6 +1653,9 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     int mem_index, s_bits;
     int stack_adjust;
     uint8_t *label_ptr[3];
+#ifdef CONFIG_TCG_XTAINT
+    int8_t flag = -1;
+#endif /* CONFIG_TCG_XTAINT */
 
     data_reg = args[0];
     addrlo_idx = 1;
@@ -1778,6 +1786,9 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     int addrlo_idx;
     int mem_index, s_bits, arg_idx;
     uint8_t *label_ptr[3];
+#ifdef CONFIG_TCG_XTAINT
+    int8_t flag = -1;
+#endif /* CONFIG_TCG_XTAINT */
 
     data_reg = args[0];
     addrlo_idx = 1;
@@ -1907,10 +1918,303 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     /* label2: */
     *label_ptr[2] = s->code_ptr - label_ptr[2] - 1;
 }
+
+#ifdef CONFIG_TCG_XTAINT
+/* mchen - backend of XTAINT_save_temp, without extra reg allocation
+ * Input:
+ * 	args[0] - index source shadow temp
+ * 	args[1] - index source temp
+ * 	args[2] - index destination temp
+ * 	args[3] - size indicator
+ *
+ * Output: if source shadow is tainted, record addr & val of src & dest.
+ */
+static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
+	TCGTemp *ts_shdw, *ts, *ots;
+	ts_shdw = &s->temps[args[0]];
+	ts = &s->temps[args[1]];
+	ots = &s->temps[args[2]];
+	int8_t size = args[3];
+
+	tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+
+	/* Base on the type of src shadow to process different cases */
+	switch(ts_shdw->val_type){
+		case TEMP_VAL_DEAD:
+			printf("Source shadow is D\n");
+			break;
+		case TEMP_VAL_MEM:
+		{
+			// because push regs[0], the esp is -4 bytes, result in the relative
+			// addr of src shadow is not correct,
+			// need to +4 byte to cancle
+			if(ts_shdw->mem_reg == 0x4) // only for esp
+				tcg_out_ld(s, ts_shdw->type, tcg_target_call_iarg_regs[0],
+						ts_shdw->mem_reg,
+						ts_shdw->mem_offset + 0x4);
+			else
+				tcg_out_ld(s, ts_shdw->type, tcg_target_call_iarg_regs[0],
+						ts_shdw->mem_reg,
+						ts_shdw->mem_offset);
+			int label_isTaint;
+			label_isTaint = gen_new_label();
+			/* from qemu: Use SMALL != 0 to force a short forward branch.  */
+			int small = 1;
+			int const_arg = 1; 	/* test */
+			TCGArg ZERO = 0;
+			/* if src shadow is tainted? */
+			tcg_out_brcond32(s, TCG_COND_EQ, tcg_target_call_iarg_regs[0],
+								ZERO,
+								const_arg,
+								label_isTaint,
+								small);
+
+			if(size < X_ST_POINTER ){ // if the instru is store pointer? N
+				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+				XTAINT_save_tmp_gen_insn(s, args, ots, size);
+			}
+			else{ // Y
+				size -= X_ST_POINTER;
+				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+				XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+			}
+
+
+//			tcg_out_push(s, TCG_REG_EBX);
+			tcg_out_push(s, TCG_REG_ECX);
+			tcg_out_push(s, TCG_REG_EDX);
+			tcg_out_calli(s, (tcg_target_long)XTAINT_log_temp);
+			tcg_out_pop(s, TCG_REG_EDX);
+			tcg_out_pop(s, TCG_REG_ECX);
+//			tcg_out_pop(s, TCG_REG_EBX);
+			tcg_out_addi(s, TCG_REG_ESP, 24);
+
+			tcg_out_label(s, label_isTaint, (tcg_target_long)s->code_ptr);
+		}
+			break;
+		case TEMP_VAL_REG:
+		{
+			TCGReg src_shdw_reg = ts_shdw->reg;
+			int label_isTaint;
+			label_isTaint = gen_new_label();
+			/* from qemu: Use SMALL != 0 to force a short forward branch.  */
+			int small = 1;
+			int const_arg = 1; 	/* test */
+			TCGArg ZERO = 0;
+			/* if src shadow is tainted? */
+			tcg_out_brcond32(s, TCG_COND_EQ, src_shdw_reg, ZERO, const_arg,
+								label_isTaint, small);
+
+			if(size < X_ST_POINTER ){
+				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+				XTAINT_save_tmp_gen_insn(s, args, ots, size);
+			}
+			else{
+				size -= X_ST_POINTER;
+				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+				XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+			}
+
+//			tcg_out_push(s, TCG_REG_EBX);
+			tcg_out_push(s, TCG_REG_ECX);
+			tcg_out_push(s, TCG_REG_EDX);
+			tcg_out_calli(s, (tcg_target_long)XTAINT_log_temp);
+			tcg_out_pop(s, TCG_REG_EDX);
+			tcg_out_pop(s, TCG_REG_ECX);
+//			tcg_out_pop(s, TCG_REG_EBX);
+			tcg_out_addi(s, TCG_REG_ESP, 24);
+
+			tcg_out_label(s, label_isTaint, (tcg_target_long)s->code_ptr);
+		}
+			break;
+		case TEMP_VAL_CONST:
+//			printf("Source shadow val is as C\n");
+			if(ts_shdw->val != 0) { // if source shadow is tainted
+				if(size < X_ST_POINTER ){
+					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+					XTAINT_save_tmp_gen_insn(s, args, ots, size);
+				}
+				else{
+					size -= X_ST_POINTER;
+					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+					XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+				}
+
+//				tcg_out_push(s, TCG_REG_EBX);
+				tcg_out_push(s, TCG_REG_ECX);
+				tcg_out_push(s, TCG_REG_EDX);
+				tcg_out_calli(s, (tcg_target_long)XTAINT_log_temp);
+				tcg_out_pop(s, TCG_REG_EDX);
+				tcg_out_pop(s, TCG_REG_ECX);
+//				tcg_out_pop(s, TCG_REG_EBX);
+				tcg_out_addi(s, TCG_REG_ESP, 24);
+			}
+			break;
+		default:
+			printf("Unknown source shadow type, %d\n", ts_shdw->val_type);
+			break;
+	}
+	tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
+}
+
+/* generate instrument insn, passed via stack */
+inline void XTAINT_save_tmp_gen_insn(TCGContext *s,
+										TCGArg *args,
+										TCGTemp *tmp,
+										int8_t size){
+	int8_t flag = size;
+
+	switch(tmp->val_type){
+		case TEMP_VAL_DEAD:
+//			printf("Temp is D\n");
+			break;
+		case TEMP_VAL_MEM:
+		{
+//			printf("Temp val is as M\n");
+			if(tmp->mem_reg == 4) flag += X_BASE_ESP;
+			else if(tmp->mem_reg == 5) flag += X_BASE_EBP;
+			else printf("base reg neither esp nor ebp: %x\n", tmp->mem_reg);
+			tcg_out_pushi(s, flag);
+			tcg_out_pushi(s, tmp->mem_offset);
+			tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+						tmp->mem_reg,
+						tmp->mem_offset);
+			tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+		}
+			break;
+		case TEMP_VAL_REG:
+		{
+//			printf("Temp val is as Reg\n");
+			if(tmp->mem_allocated == 1 && tmp->mem_reg == 5) {
+				flag += X_BASE_EBP;
+				tcg_out_pushi(s, flag);
+				tcg_out_pushi(s, tmp->mem_offset);
+//				tcg_out_pushi(s, tmp->name);
+				tcg_out_push(s, tmp->reg);
+			} else {
+				tcg_out_pushi(s, flag);
+				tcg_out_pushi(s, tmp->reg);
+				tcg_out_push(s, tmp->reg);
+			}
+		}
+			break;
+		case TEMP_VAL_CONST:
+		{
+//			printf("Temp val is as C\n");
+			if(tmp->mem_allocated == 1 && tmp->mem_reg == 5) {
+				flag += X_BASE_EBP;
+				tcg_out_pushi(s, flag);
+				tcg_out_pushi(s, tmp->mem_offset);
+//				tcg_out_pushi(s, tmp->name);
+				tcg_out_pushi(s, tmp->val);
+			}else if(s->reg_to_temp[tmp->reg] == args[1] )	{
+				tcg_out_pushi(s, flag);
+				tcg_out_pushi(s, tmp->reg);
+				tcg_out_pushi(s, tmp->val);
+			}
+			else {
+				tcg_out_pushi(s, flag);
+				tcg_out_pushi(s, 0x004e4f43);
+				tcg_out_pushi(s, tmp->val);
+			}
+		}
+			break;
+		default:
+			printf("Unknown temp type, %d\n", tmp->val_type);
+			break;
+	}
+}
+
+/* handle special case for saving destination of memory store operation with
+ * pointer as taint source. If pointer is tainted, save the (pointer, content)
+ * as source and destination. The record of content should be:
+ * flag: size
+ * addr: content of ts (the pointer itself)
+ * val: the content of ots */
+inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
+										TCGArg *args,
+										TCGTemp *ts,
+										TCGTemp *ots,
+										int8_t size){
+	int8_t flag = size;
+
+	switch(ts->val_type){
+		case TEMP_VAL_DEAD:
+//			printf("ts is D\n");
+			break;
+		case TEMP_VAL_MEM:
+		{
+			tcg_out_pushi(s, flag);
+			tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0],
+					ts->mem_reg,
+					ts->mem_offset); // save addr, which in source content
+			tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+			switch(ots->val_type){ // save content
+				case TEMP_VAL_DEAD: break;
+				case TEMP_VAL_MEM:{
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+								ots->mem_reg,
+								ots->mem_offset);
+					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+				} break;
+				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
+				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
+				default: printf("Unknown ts/ots type, %d\n", ots->val_type); break;
+			}
+		}
+			break;
+		case TEMP_VAL_REG:
+		{
+			tcg_out_pushi(s, flag);
+			tcg_out_push(s, ts->reg); // save addr
+			switch(ots->val_type){
+				case TEMP_VAL_DEAD: break;
+				case TEMP_VAL_MEM:{
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+								ots->mem_reg,
+								ots->mem_offset);
+					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+				} break;
+				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
+				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
+				default: printf("Unknown ots type, %d\n", ots->val_type); break;
+			}
+		}
+			break;
+		case TEMP_VAL_CONST:
+		{
+			tcg_out_pushi(s, flag);
+			tcg_out_pushi(s, ts->val);
+			switch(ots->val_type){
+				case TEMP_VAL_DEAD: break;
+				case TEMP_VAL_MEM:{
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+								ots->mem_reg,
+								ots->mem_offset);
+					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+				} break;
+				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
+				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
+				default: printf("Unknown ots type, %d\n", ots->val_type); break;
+			}
+		}
+			break;
+		default:
+			printf("Unknown temp type, %d\n", ts->val_type);
+			break;
+	}
+}
+#endif /* CONFIG_TCG_XTAINT */
+
 #endif /* CONFIG_TCG_TAINT */
 
+#ifdef CONFIG_TCG_XTAINT
+static inline void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args,
+								const int *const_args, const TCGArg *old_args)
+#else
 static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
                               const TCGArg *args, const int *const_args)
+#endif
 {
     int c, rexw = 0;
 
