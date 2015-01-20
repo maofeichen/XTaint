@@ -711,13 +711,35 @@ int xtaint_do_disp_taint_mem(Monitor *mon,
 					for (i = 0; i < (2 << BITPAGE_LEAF_BITS); i++) {
 						if ( leaf_node->gva_map[i] && leaf_node->bitmap[i]){
 							monitor_printf(default_mon,
-									"Tainted Info: Vir Mem Addr: 0x%x, Size: 0x%x\n",
+									"Tainted Info - Vir Mem Addr: 0x%x, Size: 0x%x\n",
 									leaf_node->gva_map[i], leaf_node->size[i]);
 						}
 					}
 				}
 			}
 		}
+	}
+	DECAF_start_vm();
+	return 0;
+}
+
+int xtaint_do_taint_vir_mem(Monitor *mon, const QDict *qdict, QObject **ret_data){
+	target_long gva_taint = qdict_get_int(qdict, "addr");
+	uint32_t size = qdict_get_int(qdict, "val");
+	uint8_t taint_ary[size];
+	int i;
+
+	if (!taint_tracking_enabled){
+		monitor_printf(default_mon, "Ignored, taint tracking is disabled\n");
+		return 0;
+	} else {
+		for (i = 0; i < size; i++) {
+			taint_ary[i] = 0xff;
+		}
+		DECAF_stop_vm();
+		taintcheck_taint_virtmem(gva_taint, size, taint_ary);
+
+//		monitor_printf(default_mon, "start addr: %x, size: %x\n", gva_taint, size);
 	}
 	DECAF_start_vm();
 	return 0;

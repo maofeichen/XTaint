@@ -14,6 +14,7 @@ extern "C" {
 #ifdef CONFIG_TCG_XTAINT
 extern int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data);
 extern int xtaint_do_disp_taint_mem(Monitor *mon, const QDict *qdict, QObject **ret_data);
+extern int xtaint_do_taint_vir_mem(Monitor *mon, const QDict *qdict, QObject **ret_data);
 #endif /* CONFIG_TCG_XTAINT */
 
 /* These were originally in TEMU_main.h */

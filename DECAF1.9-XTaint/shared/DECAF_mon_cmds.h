@@ -138,6 +138,13 @@ http://code.google.com/p/decaf-platform/
 	.help       = "Display vir memory addr & size of tainted memory",
 	.mhandler.cmd = xtaint_do_disp_taint_mem,
 },
+{
+	.name       = "xtaint_taint_vir_mem",
+	.args_type  = "addr:l,val:l",
+	.params     = "addr val",
+	.help       = "Taint virtual mem addr via start addr & size",
+	.mhandler.cmd = xtaint_do_taint_vir_mem,
+},
 #endif
 #endif /* CONFIG_TCG_TAINT */
 
