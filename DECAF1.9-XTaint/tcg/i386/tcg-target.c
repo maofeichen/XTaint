@@ -1676,6 +1676,12 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     /* TLB Hit.  */
     /* AWH - Restore the virtual address */
     tcg_out_pop(s, args[addrlo_idx]);
+
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled)
+		tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again/
+#endif /* CONFIG_TCG_XTAINT */
+
     tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
     tcg_out_push(s, tcg_target_call_iarg_regs[0]); // Same
     tcg_out_mov(s, TCG_TYPE_I32, 
@@ -1707,6 +1713,25 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     tcg_out_qemu_st_direct(s, data_reg, data_reg2,
                            tcg_target_call_iarg_regs[0], 0, opc);
 
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled){
+		if(cpu_single_env->tempidx != 0) {	// if tainted
+			switch(opc){
+			case 0: flag = X_BYTE + X_ST; break;
+			case 1: flag = X_WORD + X_ST; break;
+			case 2: flag = X_LONG + X_ST; break;
+			default: tcg_abort();
+			}
+    		tcg_out_pushi(s, flag); // save flag
+			tcg_out_pushi(s, data_reg); // save src reg idx
+			tcg_out_push(s, data_reg); // save src & dest val
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
+			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+		} else
+			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
+    }
+#endif /* CONFIG_TCG_XTAINT */
+
     /* jmp label2 */
     tcg_out8(s, OPC_JMP_short);
     label_ptr[2] = s->code_ptr;
@@ -1722,6 +1747,11 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
 
     /* AWH - Pop the virtual address off the stack */
     tcg_out_pop(s, args[addrlo_idx]);
+
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled)
+    	tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
+#endif /* CONFIG_TCG_XTAINT */
 
     /* XXX: move that code at the end of the TB */
     /* TCG_TARGET_REG_BITS == 64 case in x86_op_defs[] */
@@ -1769,6 +1799,26 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
 
     tcg_out_calli(s, (tcg_target_long)taint_qemu_st_helpers[s_bits]);
 
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled){
+		if(cpu_single_env->tempidx != 0) {	// if tainted
+			switch(opc){
+			case 0: flag = X_BYTE + X_ST; break;
+			case 1: flag = X_WORD + X_ST; break;
+			case 2: flag = X_LONG + X_ST; break;
+			default: tcg_abort();
+			}
+    		tcg_out_pushi(s, flag); // save flag
+			tcg_out_pushi(s, data_reg); // save src reg idx
+			tcg_out_push(s, data_reg); // save src & dest val
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
+
+			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+		} else
+			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
+    }
+#endif /* CONFIG_TCG_XTAINT */
+
     if (stack_adjust == (TCG_TARGET_REG_BITS / 8)) {
         /* Pop and discard.  This is 2 bytes smaller than the add.  */
         tcg_out_pop(s, TCG_REG_ECX);
@@ -1812,6 +1862,11 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
        functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
     tcg_out_pop(s, args[addrlo_idx]);
 
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled)
+    	tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
+#endif /* CONFIG_TCG_XTAINT */
+
     if (s_bits == 3)
       tcg_out_push(s, data_reg2);
     tcg_out_push(s, data_reg);
@@ -1851,6 +1906,28 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     tcg_out_qemu_ld_direct(s, data_reg, data_reg2,
                            tcg_target_call_iarg_regs[0], 0, opc);
 
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled){
+		if(cpu_single_env->tempidx != 0) {	// if tainted
+			switch(s_bits) {
+			case 0:
+			case 0 | 4: flag = X_BYTE + X_LD; break;
+			case 1:
+			case 1 | 4: flag = X_WORD + X_LD; break;
+			case 2: flag = X_LONG + X_LD; break;
+			default: tcg_abort();
+			}
+    		tcg_out_pushi(s, flag); // save flag
+			tcg_out_pushi(s, data_reg); // save dest reg idx
+			tcg_out_push(s, data_reg); // save src & dest val
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
+
+			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+		} else
+			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
+    }
+#endif /* CONFIG_TCG_XTAINT */
+
     /* jmp label2 */
     tcg_out8(s, OPC_JMP_short);
     label_ptr[2] = s->code_ptr;
@@ -1866,6 +1943,11 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
 
     /* AWH - Pop the virtual address off the stack */
     tcg_out_pop(s, args[addrlo_idx]);
+
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled)
+    	tcg_out_push(s, args[addrlo_idx]); // push vir mem addr again
+#endif /* CONFIG_TCG_XTAINT */
 
     /* XXX: move that code at the end of the TB */
     /* The first argument is already loaded with addrlo.  */
@@ -1914,6 +1996,31 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     default:
         tcg_abort();
     }
+#ifdef CONFIG_TCG_XTAINT
+    if(xtaint_save_temp_enabled){
+		if(cpu_single_env->tempidx != 0) {	// if tainted
+			switch(s_bits) {
+			case 0:
+			case 0 | 4: flag = X_BYTE + X_LD; break;
+			case 1:
+			case 1 | 4: flag = X_WORD + X_LD; break;
+			case 2: flag = X_LONG + X_LD; break;
+			default: tcg_abort();
+			}
+    		tcg_out_pushi(s, flag); // save flag
+			tcg_out_pushi(s, data_reg); // save dest reg idx
+			tcg_out_push(s, data_reg); // save src & dest val
+
+//			tcg_out_push(s, TCG_REG_EAX);
+			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_tlbmiss);
+//			tcg_out_pop(s, TCG_REG_EAX);
+
+			tcg_out_addi(s, TCG_REG_ESP, 0x10);
+		}else
+			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
+    }
+#endif /* CONFIG_TCG_XTAINT */
 
     /* label2: */
     *label_ptr[2] = s->code_ptr - label_ptr[2] - 1;
@@ -2602,6 +2709,11 @@ static const TCGTargetOpDef x86_op_defs[] = {
     { INDEX_op_br, { } },
 #ifdef CONFIG_TCG_TAINT
     {INDEX_op_DECAF_checkeip,{"r","r"}},
+
+#ifdef CONFIG_TCG_XTAINT
+    { INDEX_op_XTAINT_save_temp, { "r","r","r" } },
+#endif /* CONFIG_TCG_XTAINT */
+
 #endif /*CONFIG_TCG_TAITN*/
     { INDEX_op_mov_i32, { "r", "r" } },
     { INDEX_op_movi_i32, { "r" } },

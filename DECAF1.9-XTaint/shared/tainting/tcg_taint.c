@@ -12,6 +12,10 @@
 #include "tcg.h"
 #include "tainting/tcg_taint.h"
 
+#ifdef CONFIG_TCG_XTAINT
+#include "tainting/XTAINT_save_record.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 #include "tainting/taint_memory.h"
 #include "config-target.h"
 
@@ -173,6 +177,9 @@ static inline int gen_taintcheck_insn(int search_pc)
   TCGv arg6, t5, t6;
 #endif /* TARGET check */
   TCGv orig0, orig1, orig2, orig3, orig4, orig5;
+#ifdef CONFIG_TCG_XTAINT
+  int8_t flag = 0;
+#endif
 
   /* Copy all of the existing ops/parms into a new buffer to back them up. */
   memcpy(gen_old_opc_buf, gen_old_opc_ptr, sizeof(uint16_t)*(nb_opc));
@@ -545,20 +552,40 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           /* Reinsert original opcode */
           tcg_gen_mov_i32(orig0, orig1);
+
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled)
+        	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+#endif
         }
         break;
 
       /* Load/store operations (32 bit). */
       /* MemCheck: mkLazyN() (Just load/store taint from/to memory) */
       case INDEX_op_qemu_ld8u: 
-      case INDEX_op_qemu_ld8s: 
+#ifdef CONFIG_TCG_XTAINT
+    	  flag = X_BYTE + X_LD;
+#endif
+      case INDEX_op_qemu_ld8s:
+#ifdef CONFIG_TCG_XTAINT
+    	  flag = X_BYTE + X_LD;
+#endif
       case INDEX_op_qemu_ld16u:
+#ifdef CONFIG_TCG_XTAINT
+    	  flag = X_WORD + X_LD;
+#endif
       case INDEX_op_qemu_ld16s:
+#ifdef CONFIG_TCG_XTAINT
+    	  flag = X_WORD + X_LD;
+#endif
 #if TCG_TARGET_REG_BITS == 64
       case INDEX_op_qemu_ld32u:
       case INDEX_op_qemu_ld32s:
 #endif /* TCG_TARGET_REG_BITS == 64 */
       case INDEX_op_qemu_ld32:
+#ifdef CONFIG_TCG_XTAINT
+    	  flag = X_LONG + X_LD;
+#endif
         // TARGET_REG_BITS = 64 OR (TARGET_REG_BITS = 32, TARGET_LONG_BITS = 32)
         if (nb_iargs == 1) arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
         // TARGET_REG_BITS = 32, TARGET_LONG_BITS = 64
@@ -567,6 +594,9 @@ static inline int gen_taintcheck_insn(int search_pc)
           /* Patch qemu_ld* opcode into taint_qemu_ld* */
           gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
           orig0 = gen_opparam_ptr[-3];
+#ifdef CONFIG_TCG_XTAINT
+          orig1 = gen_opparam_ptr[-2]; // mem addr
+#endif
 
           /* Are we doing pointer tainting? */
           if (taint_load_pointers_enabled) {
@@ -627,6 +657,13 @@ static inline int gen_taintcheck_insn(int search_pc)
               /* Combine pointer and tempidx taint */
               tcg_gen_or_i32(arg0, t0, t3);
 #endif /* TARGET_REG_BITS */
+#ifdef CONFIG_TCG_XTAINT
+              // another taint src - pointer:
+              // pointer tainted ? save (pointer, reg) : ;
+              if(xtaint_save_temp_enabled)
+            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, flag);
+//              XTaint_save_tmp_two_oprnd_flag(orig0, orig1, arg1, flag);
+#endif
             } else
               /* Patch in opcode to load taint from tempidx */
               tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
@@ -725,11 +762,20 @@ static inline int gen_taintcheck_insn(int search_pc)
 
 #if 1 // AWH - DEBUG
       case INDEX_op_qemu_st32:
+#ifdef CONFIG_TCG_XTAINT
+    	  flag = X_LONG + X_ST + X_ST_POINTER;
+#endif
         //DUMMY_TAINT(nb_oargs, nb_args);
         //break;
  
       case INDEX_op_qemu_st8:
+#ifdef CONFIG_TCG_XTAINT
+    	  flag = X_BYTE + X_ST + X_ST_POINTER;
+#endif
       case INDEX_op_qemu_st16:
+#ifdef CONFIG_TCG_XTAINT
+    	  flag = X_WORD + X_ST + X_ST_POINTER;
+#endif
 #else
       case INDEX_op_qemu_st8: 
       case INDEX_op_qemu_st16:
@@ -794,6 +840,15 @@ static inline int gen_taintcheck_insn(int search_pc)
             gen_opparam_ptr[-1] = mem_index; 
             gen_opparam_ptr[-2] = addr;
             gen_opparam_ptr[-3] = ret;
+#ifdef CONFIG_TCG_XTAINT
+            // Save another taint src - pointer:
+            // pointer tainted? save (pointer, content) : ;
+            if(xtaint_save_temp_enabled)
+				if (taint_store_pointers_enabled)
+				  if (arg1)
+					  XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag);
+//            	  XTaint_save_tmp_two_oprnd_flag(ret, addr, arg1, flag);
+#endif
           }
         } else
           tcg_abort();
@@ -988,6 +1043,19 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           /* Reinsert original opcode */
           tcg_gen_setcond_i32(orig0, orig1, orig2, orig3);
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled){
+            	if(arg1 && arg2) {
+            		XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+            		XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+            	}
+            	else if(arg1)
+            		XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+            	else if(arg2)
+            		XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+            	else ;
+            }
+#endif /* CONFIG_TCG_XTAINT*/
         }
         break;
 
@@ -1039,6 +1107,15 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, t2);
           /* Reinsert original opcode */
           tcg_gen_shl_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        	  if(arg2)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+          }
+#endif
         }
         break;
 
@@ -1088,6 +1165,15 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, t2);
           /* Reinsert original opcode */
           tcg_gen_shr_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        	  if(arg2)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
@@ -1137,6 +1223,15 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, t2);
           /* Reinsert original opcode */
           tcg_gen_sar_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        	  if(arg2)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+          }
+#endif
         }
         break;
 
@@ -1187,6 +1282,15 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, t2);
           /* Reinsert original opcode */
           tcg_gen_rotl_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        	  if(arg2)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
@@ -1235,6 +1339,15 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, t2);
           /* Reinsert original opcode */
           tcg_gen_rotr_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        	  if(arg2)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
@@ -1296,6 +1409,20 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_or_i32(arg0, t0, t1); // arg0 = (qa | qb) | ( (a_min + b_min) ^ (a_max + b_max)
           //put the original operation back
           tcg_gen_add_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(orig1 == orig2) // if two srcs are same, only instu one
+        		  if(arg1)
+					  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+        	  else {
+        		  if(arg1)
+					  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        		  if(arg2)
+					  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+        	  }
+          }
+#endif
         }
         break;
       /* T0 = (T1 | T2) | ((V1_min - V2_max) ^ (V1_max - V2_min)) */
@@ -1358,6 +1485,18 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           //put the original operation back
           tcg_gen_sub_i32(orig0, orig1, orig2);
+
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(orig1 != orig2) { // only instru two srcs are not same
+        		  if(arg1)
+					  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        		  if(arg2)
+					  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+        	  }
+          }
+#endif
         }
         break;
  // AWH
@@ -1402,6 +1541,15 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_or_i32(arg0, t0, t1); // (s32 | (-s32)) -> vLo32
           /* Reinsert original opcode */
           tcg_gen_mul_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(arg1)
+				  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        	  if(arg2)
+				  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+          }
+#endif
         }
         break;
 
@@ -1468,6 +1616,20 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           /* Reinsert original opcode */
           tcg_gen_and_i32(orig2, orig1, orig0);
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(orig0 == orig1) // if two srcs are same, instru one
+        		  if(arg1)
+					  XTaint_save_tmp_two_oprnd(orig2, orig1, arg1, X_LONG);
+        	  else{
+        		  if(arg1)
+					  XTaint_save_tmp_two_oprnd(orig2, orig1, arg1, X_LONG);
+
+        		  if(arg2)
+					  XTaint_save_tmp_two_oprnd(orig2, orig0, arg2, X_LONG);
+        	  }
+          }
+#endif
         }
         break;
 
@@ -1535,6 +1697,21 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           /* Reinsert original opcode */
           tcg_gen_or_i32(orig2, orig1, orig0);
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(orig0 == orig1) {// if two srcs are same, instru one
+        		  if(arg1)
+					  XTaint_save_tmp_two_oprnd(orig2, orig1, arg1, X_LONG);
+        	  }
+        	  else{
+        		  if(arg1)
+					  XTaint_save_tmp_two_oprnd(orig2, orig1, arg1, X_LONG);
+
+        		  if(arg2)
+					  XTaint_save_tmp_two_oprnd(orig2, orig0, arg2, X_LONG);
+        	  }
+          }
+#endif
         }
         break;
 #else
@@ -1693,6 +1870,18 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, arg2);
           else
             tcg_gen_movi_i32(arg0, 0);
+
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(orig1 != orig2){ // ignore two srcs are same
+        		  if(arg1)
+        			  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        		  if(arg2)
+        			  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+        	  }
+          }
+#endif
         }
         break;
 
@@ -1729,6 +1918,17 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_setcond_i32(TCG_COND_NE, t2, t0, t_zero);
           tcg_gen_neg_i32(arg0, t2);
 
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled){
+        	  if(orig1 != orig2){ // only instru if two srcs are NOT same
+        		  if(arg1)
+					  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+        		  if(arg2)
+					  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+        	  }
+          }
+#endif
         }
         break;
 #elif TCG_TARGET_HAS_div2_i32
@@ -1794,6 +1994,12 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_ext8s_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled)
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_BYTE);
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_ext8s_i32 */
@@ -1808,6 +2014,12 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_ext16s_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled)
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_WORD);
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_ext16s_i32 */
@@ -1823,6 +2035,12 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_ext8u_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled)
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_BYTE);
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_ext8u_i32 */
@@ -1838,6 +2056,12 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_ext16u_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled)
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_WORD);
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_ext16u_i32 */
@@ -1854,6 +2078,12 @@ static inline int gen_taintcheck_insn(int search_pc)
           else
             tcg_gen_movi_i32(arg0, 0);
         }
+
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled)
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_WORD);
+#endif /* CONFIG_TCG_XTAINT */
         break;
 #endif /* TCG_TARGET_HAS_bswap16_i32 */
 #if TCG_TARGET_HAS_bswap32_i32
@@ -1868,6 +2098,12 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_bswap32_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+
+#ifdef CONFIG_TCG_XTAINT
+          if(xtaint_save_temp_enabled)
+        	  if(arg1)
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_bswap32_i32 */
@@ -1883,6 +2119,13 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled){
+            	if(arg1)
+            		XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_not_i32 */
@@ -1898,6 +2141,13 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled) {
+            	if(arg1)
+            		XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
@@ -2821,6 +3071,18 @@ int retVal;
 
     return(retVal);
 }
+
+#ifdef CONFIG_TCG_XTAINT
+inline void XTaint_save_tmp_two_oprnd(TCGv orig0,
+										TCGv orig1,
+										TCGv arg1,
+										int8_t flag){
+    if(orig1 != orig0) { /* only if src != dest continues */
+		tcg_gen_XTAINT_save_temp(arg1, orig1, orig0, flag);
+    }
+}
+#endif /* CONFIG_TCG_XTAINT */
+
 #if 0 //defined(USE_TCG_OPTIMIZATIONS)
 static void build_liveness_metadata(TCGContext *s)
 {

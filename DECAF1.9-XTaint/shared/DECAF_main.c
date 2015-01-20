@@ -34,6 +34,13 @@
 #include "procmod.h"
 #ifdef CONFIG_TCG_TAINT
 #include "tainting/taint_memory.h"
+
+#ifdef CONFIG_TCG_XTAINT
+#include "tainting/XTAINT_log.h"
+#include <stdio.h>
+#include <stdlib.h>
+#endif /* CONFIG_TCG_XTAINT */
+
 #include "tainting/taintcheck_opt.h"
 #endif /* CONFIG_TCG_TAINT */
 
@@ -641,3 +648,21 @@ static void convert_endian_4b(uint32_t *data)
          | ((*data & 0x0000ff00) <<  8)
          | ((*data & 0x000000ff) << 24);
 }
+#ifdef CONFIG_TCG_XTAINT
+char *xtaint_fpath =
+		"/home/user/Workspace-Ubuntu1004/Qemu/XTaint/Result/xtaint-save_mem.log";
+
+void XTAINT_init(void) {
+	if((xtaint_fp = fopen(xtaint_fpath, "wa") ) == NULL){
+			fprintf(stderr, "fail to open file\n");
+	}
+	printf("XTAINT: open file\n");
+}
+
+void XTAINT_clean(void) {
+	if(xtaint_cur_pool_sz < XTAINT_MAX_POOL_SIZE)
+		 xtaint_flush_to_file(xtaint_fp);
+	fclose(xtaint_fp);
+	printf("XTAINT: close file\n");
+}
+#endif

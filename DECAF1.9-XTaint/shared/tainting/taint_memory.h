@@ -58,6 +58,10 @@ extern void qemu_free(void *ptr);
 /* Leaf node for holding memory taint information */
 typedef struct _tbitpage_leaf {
   uint8_t bitmap[2 << BITPAGE_LEAF_BITS]; /* This is the bitwise tainting data for the page */
+#ifdef CONFIG_TCG_XTAINT
+  gva_t gva_map[2 << BITPAGE_LEAF_BITS];
+  uint8_t size[2 << BITPAGE_LEAF_BITS];
+#endif /* CONFIG_TCG_XTAINT */
 } tbitpage_leaf_t;
 
 /* Middle node for holding memory taint information */
