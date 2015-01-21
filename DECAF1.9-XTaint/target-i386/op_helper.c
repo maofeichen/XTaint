@@ -5972,7 +5972,11 @@ void helper_DECAF_taint_patch(void)
 
 	if (DECAF_read_mem(cpu_single_env, addr2, 4, &addr2) >= 0 && (phys_addr2 =
 			DECAF_get_phys_addr(cpu_single_env, addr2)) != -1) {
+#ifdef CONFIG_TCG_XTAINT
+		taint_mem(phys_addr2, 1,(uint8_t*) &taint_check, addr2);
+#else
 		taint_mem(phys_addr2, 1,(uint8_t*) &taint_check);
+#endif /* CONFIG_TCG_XTAINT */
 	}
 }
 

@@ -314,16 +314,21 @@ int  taintcheck_taint_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 		size2 = size -size1;
 	} else
 		size1 = size, size2 = 0;
-
+#ifdef CONFIG_TCG_XTAINT
+	taint_mem(paddr, size1, taint, vaddr);
+#else
 	taint_mem(paddr, size1, taint);
+#endif /* CONFIG_TCG_XTAINT */
 	if(size2) {
 		paddr = DECAF_get_phys_addr(env, (vaddr&TARGET_PAGE_MASK) + TARGET_PAGE_SIZE);
 		if(paddr == -1)
 			return -1;
-	
+#ifdef CONFIG_TCG_XTAINT
+		taint_mem(paddr, size2, (uint8_t *)(taint+size1), vaddr);
+#else
 		taint_mem(paddr, size2, (uint8_t*)(taint+size1));
+#endif /* CONFIG_TCG_XTAINT */
 	}
-
 	return 0;
 }
 

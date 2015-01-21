@@ -145,6 +145,13 @@ http://code.google.com/p/decaf-platform/
 	.help       = "Taint virtual mem addr via start addr & size",
 	.mhandler.cmd = xtaint_do_taint_vir_mem,
 },
+{
+	.name       = "xtaint_check_taint_virtmem",
+	.args_type  = "addr:l,val:l",
+	.params     = "addr val",
+	.help       = "Check if virtual mem addr is tainted via start addr & size",
+	.mhandler.cmd = xtaint_do_check_taint_virtmem,
+},
 #endif
 #endif /* CONFIG_TCG_TAINT */
 

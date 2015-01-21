@@ -23,6 +23,11 @@ http://code.google.com/p/decaf-platform/
 #include "taint_memory.h"
 
 #endif /* CONFIG_TCG_TAINT*/
+
+#ifdef CONFIG_TCG_XTAINT
+#include "XTAINT_save_record.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -48,7 +53,11 @@ size: memory size expected to taint
 taint: pointer to a buffer containing taint information. "size" is also the size
 of this buffer.
 */
+#ifdef CONFIG_TCG_XTAINT
+static inline int taint_mem(uint32_t addr, int size, uint8_t *taint, gva_t vaddr)
+#else
 static inline int taint_mem(uint32_t addr,int size,uint8_t *taint)
+#endif
 {
         uint32_t middle_node_index;
         uint32_t leaf_node_index;
@@ -69,7 +78,11 @@ static inline int taint_mem(uint32_t addr,int size,uint8_t *taint)
 	    leaf_node=taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
           }
           leaf_node->bitmap[(addr+i)&LEAF_ADDRESS_MASK]=taint[i];
-        }    
+#ifdef CONFIG_TCG_XTAINT
+          leaf_node->gva_map[(addr + i) & LEAF_ADDRESS_MASK] = vaddr + i;
+          leaf_node->size[(addr + i) & LEAF_ADDRESS_MASK] = X_BYTE;
+#endif /* CONFIG_TCG_XTAINT */
+        }
 	return 1;
 }
 
