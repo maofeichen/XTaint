@@ -35,7 +35,7 @@ const uint32_t LEAF_ADDRESS_MASK = (2 << BITPAGE_LEAF_BITS) - 1;
 const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1;
 
 #ifdef CONFIG_TCG_XTAINT
-int xtaint_save_temp_enabled = 0;	// enable save temp or not
+int xtaint_save_temp_enabled = 1;	// enable save temp or not
 
 uint8_t xtaint_pool[XTAINT_MAX_POOL_SIZE];
 uint8_t *xtaint_ptr_cur_rcrd = xtaint_pool;
@@ -194,7 +194,7 @@ void xtaint_flush_to_file(FILE *xtaint_fp) {
 
 		fprintf(xtaint_fp, "\n");
 	}
-//	fprintf(xtaint_fp, "\n");
+	fprintf(xtaint_fp, "\n");
 }
 
 #endif /* CONFIG_TCG_XTAINT */
@@ -767,7 +767,7 @@ int xtaint_do_disp_taint_mem(Monitor *mon, const QDict *qdict,
 			}
 		}
 	}
-	monitor_printf(default_mon, "tainted bytes totally: %d\n", tainted_bytes);
+	monitor_printf(default_mon, "tainted bytes total: %d\n", tainted_bytes);
 	DECAF_start_vm();
 	return 0;
 }
@@ -776,6 +776,10 @@ int xtaint_do_taint_vir_mem(Monitor *mon, const QDict *qdict,
 		QObject **ret_data) {
 	target_long gva_taint = qdict_get_int(qdict, "addr");
 	uint32_t size = qdict_get_int(qdict, "val");
+	monitor_printf(default_mon, "the vaddr: 0x%x, size: 0x%x\n", gva_taint, size);
+
+//	target_long gva_taint = 0xbffff7ec;
+//	uint32_t size = 0x4;
 	uint8_t taint_ary[size];
 	int i;
 
@@ -788,11 +792,12 @@ int xtaint_do_taint_vir_mem(Monitor *mon, const QDict *qdict,
 			taint_ary[i] = 0xff;
 		}
 		DECAF_stop_vm();
-		taintcheck_taint_virtmem(gva_taint, size, taint_ary);
 
+		taintcheck_taint_virtmem(gva_taint, size, taint_ary);
 //		monitor_printf(default_mon, "start addr: %x, size: %x\n", gva_taint, size);
+
+		DECAF_start_vm();
 	}
-	DECAF_start_vm();
 	return 0;
 }
 
@@ -823,8 +828,8 @@ int xtaint_do_check_taint_virtmem(Monitor *mon, const QDict *qdict,
 //			}
 		}
 		monitor_printf(default_mon, "\n");
+		DECAF_start_vm();
 	}
-	DECAF_start_vm();
 	return 0;
 }
 #endif /* CONFIG_TCG_XTAINT */

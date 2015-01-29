@@ -827,6 +827,13 @@ static inline int gen_taintcheck_insn(int search_pc)
                 /* Store combined taint to tempidx */
                 tcg_gen_st32_tl(t1, cpu_env, offsetof(OurCPUState,tempidx));
 #endif /* TARGET_REG_BITS */
+#ifdef CONFIG_TCG_XTAINT
+            // Save another taint src - pointer:
+            // pointer tainted? save (pointer, content) : ;
+            if(xtaint_save_temp_enabled)
+            	XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag);
+//            	  XTaint_save_tmp_two_oprnd_flag(ret, addr, arg1, flag);
+#endif
 
               } else
                 tcg_gen_st32_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
@@ -843,10 +850,10 @@ static inline int gen_taintcheck_insn(int search_pc)
 #ifdef CONFIG_TCG_XTAINT
             // Save another taint src - pointer:
             // pointer tainted? save (pointer, content) : ;
-            if(xtaint_save_temp_enabled)
-				if (taint_store_pointers_enabled)
-				  if (arg1)
-					  XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag);
+//            if(xtaint_save_temp_enabled)
+//				if (taint_store_pointers_enabled)
+//				  if (arg1)
+//					  XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag);
 //            	  XTaint_save_tmp_two_oprnd_flag(ret, addr, arg1, flag);
 #endif
           }

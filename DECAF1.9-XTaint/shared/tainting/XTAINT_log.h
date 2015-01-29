@@ -12,7 +12,7 @@
 
 #ifdef CONFIG_TCG_XTAINT
 
-#define XTAINT_MAX_POOL_SIZE (64 * 1024 * 1024)
+#define XTAINT_MAX_POOL_SIZE (8 * 1024 * 1024)
 #define XTAINT_POOL_THRESHOLD (1024 * 1024)
 
 extern uint8_t xtaint_pool[XTAINT_MAX_POOL_SIZE];
