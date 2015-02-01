@@ -2076,7 +2076,7 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 			int const_arg = 1; 	/* test */
 			TCGArg ZERO = 0;
 			/* if src shadow is tainted? */
-			tcg_out_brcond32(s, TCG_COND_EQ, tcg_target_call_iarg_regs[0],
+			tcg_out_brcond32(s, TCG_COND_NE, tcg_target_call_iarg_regs[0],
 								ZERO,
 								const_arg,
 								label_isTaint,
@@ -2120,7 +2120,7 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 			int const_arg = 1; 	/* test */
 			TCGArg ZERO = 0;
 			/* if src shadow is tainted? */
-			tcg_out_brcond32(s, TCG_COND_EQ, src_shdw_reg, ZERO, const_arg,
+			tcg_out_brcond32(s, TCG_COND_NE, src_shdw_reg, ZERO, const_arg,
 								label_isTaint, small);
 
 			if(size < X_ST_POINTER ){
@@ -2151,7 +2151,7 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 //			printf("Source shadow val is as C\n");
 //			if(size >= X_ST_POINTER)
 //				goto ST_POINTER_CON;
-			if(ts_shdw->val != 0) { // if source shadow is tainted
+			if(ts_shdw->val == 0) { // if source shadow is tainted
 //				if(size >= X_ST_POINTER) break;
 
 				if(size < X_ST_POINTER ){
