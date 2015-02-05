@@ -61,6 +61,9 @@
 
 #ifdef CONFIG_TCG_TAINT
 #include "tainting/tcg_taint.h"
+#ifdef CONFIG_TCG_XTAINT
+#include "tainting/XTAINT_save_record.h"
+#endif /* CONFIG_TCG_XTAINT */
 #endif /* CONFIG_TCG_TAINT */
 
 #if defined(CONFIG_USE_GUEST_BASE) && !defined(TCG_TARGET_HAS_GUEST_BASE)
@@ -2196,9 +2199,18 @@ static inline int tcg_gen_code_common(TCGContext *s, uint8_t *gen_code_buf,
             goto the_end;
 #ifdef CONFIG_TCG_XTAINT
 		case INDEX_op_XTAINT_save_temp:
-			tcg_out_XTAINT_save_temp(s, args);
+		{
+			if(args[3] > X_DEBUG)
+				tcg_out_XTAINT_save_tmp_internal(s, args);
+			else
+				tcg_out_XTAINT_save_temp(s, args);
+		}
+			break;
+		case INDEX_op_XTAINT_set_label:
+			tcg_out_label(s, args[0], (long)s->code_ptr);
 			break;
 #endif /* CONFIG_TCG_XTAINT */
+//		case INDEX_op_XTAINT_brcond_i32:
         default:
             /* Sanity check that we've not introduced any unhandled opcodes. */
             if (def->flags & TCG_OPF_NOT_PRESENT) {

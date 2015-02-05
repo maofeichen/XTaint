@@ -2192,6 +2192,15 @@ static inline void tcg_gen_XTAINT_save_temp(TCGv src_shdw,
 {
 	tcg_gen_op4_i32(INDEX_op_XTAINT_save_temp, src_shdw, src, dest, flag);
 }
+static inline void gen_XTAINT_set_label(int n)
+{
+    tcg_gen_op1i(INDEX_op_XTAINT_set_label, n);
+}
+static inline void tcg_gen_XTAINT_brcond_i32(TCGCond cond, TCGv_i32 arg1,
+                                      TCGv_i32 arg2, int label_index)
+{
+    tcg_gen_op4ii_i32(INDEX_op_XTAINT_brcond_i32, arg1, arg2, cond, label_index);
+}
 #endif /*CONFIG_TCG_XTAINT */
 
 #if TCG_TARGET_REG_BITS == 32

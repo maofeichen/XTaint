@@ -20,6 +20,9 @@
 #include "config-target.h"
 
 #include "helper.h" // Taint helper functions, plus I386 IN/OUT helpers
+//#ifdef CONFIG_TCG_XTAINT
+//#define GEN_HELPER 1
+//#endif /* CONFIG_TCG_XTAINT */
 #include "DECAF_callback_common.h"
 #include "DECAF_callback_to_QEMU.h"
 
@@ -179,6 +182,7 @@ static inline int gen_taintcheck_insn(int search_pc)
   TCGv orig0, orig1, orig2, orig3, orig4, orig5;
 #ifdef CONFIG_TCG_XTAINT
   int8_t flag = 0;
+  int src_taint_label;
 #endif
 
   /* Copy all of the existing ops/parms into a new buffer to back them up. */
@@ -554,8 +558,16 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_mov_i32(orig0, orig1);
 
 #ifdef CONFIG_TCG_XTAINT
-          if(xtaint_save_temp_enabled)
+          if(xtaint_save_temp_enabled){
+//        	  src_taint_label = gen_new_label();
+//        	  t_zero = tcg_temp_new_i32();
+//        	  tcg_gen_movi_i32(t_zero, 0);
+//        	  tcg_gen_XTAINT_brcond_i32(TCG_COND_EQ, arg1, t_zero, src_taint_label);
         	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+
+//        	  gen_set_label(src_taint_label);
+//        	  gen_XTAINT_set_label(src_taint_label);
+          }
 #endif
         }
         break;
@@ -660,9 +672,10 @@ static inline int gen_taintcheck_insn(int search_pc)
 #ifdef CONFIG_TCG_XTAINT
               // another taint src - pointer:
               // pointer tainted ? save (pointer, reg) : ;
-              if(xtaint_save_temp_enabled)
-            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, flag);
-//              XTaint_save_tmp_two_oprnd_flag(orig0, orig1, arg1, flag);
+              if(xtaint_save_temp_enabled){
+            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, flag + X_DEBUG);
+//            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, flag);
+              }
 #endif
             } else
               /* Patch in opcode to load taint from tempidx */
@@ -830,9 +843,10 @@ static inline int gen_taintcheck_insn(int search_pc)
 #ifdef CONFIG_TCG_XTAINT
             // Save another taint src - pointer:
             // pointer tainted? save (pointer, content) : ;
-            if(xtaint_save_temp_enabled)
-            	XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag);
-//            	  XTaint_save_tmp_two_oprnd_flag(ret, addr, arg1, flag);
+            if(xtaint_save_temp_enabled){
+            	XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag + X_DEBUG);
+//            	XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag);
+            }
 #endif
 
               } else
@@ -847,15 +861,6 @@ static inline int gen_taintcheck_insn(int search_pc)
             gen_opparam_ptr[-1] = mem_index; 
             gen_opparam_ptr[-2] = addr;
             gen_opparam_ptr[-3] = ret;
-#ifdef CONFIG_TCG_XTAINT
-            // Save another taint src - pointer:
-            // pointer tainted? save (pointer, content) : ;
-//            if(xtaint_save_temp_enabled)
-//				if (taint_store_pointers_enabled)
-//				  if (arg1)
-//					  XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag);
-//            	  XTaint_save_tmp_two_oprnd_flag(ret, addr, arg1, flag);
-#endif
           }
         } else
           tcg_abort();

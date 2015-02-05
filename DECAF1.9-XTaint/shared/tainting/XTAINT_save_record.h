@@ -22,6 +22,7 @@
 #define X_ST 0x20
 /* handle specially for memory store with pointer as taint source */
 #define X_ST_POINTER 0x30
+#define X_DEBUG 0x40
 
 extern int xtaint_save_temp_enabled;
 

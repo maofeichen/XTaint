@@ -54,6 +54,8 @@ DEF(DECAF_checkeip, 0, 2, 0, TCG_OPF_CALL_CLOBBER | TCG_OPF_SIDE_EFFECTS) //Doub
 
 #ifdef CONFIG_TCG_XTAINT
 DEF(XTAINT_save_temp, 0, 3, 1, 0)
+DEF(XTAINT_set_label, 0, 0, 1, 0)
+DEF(XTAINT_brcond_i32, 0, 2, 2, 0)
 #endif /*CONFIG_TCG_XTAINT */
 
 DEF(mov_i32, 1, 1, 0, 0)
