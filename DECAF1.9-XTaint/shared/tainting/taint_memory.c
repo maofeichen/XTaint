@@ -20,8 +20,8 @@
 int taint_tracking_enabled = 0;
 int taint_nic_enabled = 0;
 int taint_pointers_enabled = 0;
-int taint_load_pointers_enabled = 0;
-int taint_store_pointers_enabled = 0;
+int taint_load_pointers_enabled = 1;
+int taint_store_pointers_enabled = 1;
 
 /* Root node for holding memory taint information */
 tbitpage_middle_t **taint_memory_page_table = NULL;
@@ -35,7 +35,7 @@ const uint32_t LEAF_ADDRESS_MASK = (2 << BITPAGE_LEAF_BITS) - 1;
 const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1;
 
 #ifdef CONFIG_TCG_XTAINT
-int xtaint_save_temp_enabled = 0;	// enable save temp or not
+int xtaint_save_temp_enabled = 1;	// enable save temp or not
 
 uint8_t xtaint_pool[XTAINT_MAX_POOL_SIZE];
 uint8_t *xtaint_ptr_cur_rcrd = xtaint_pool;

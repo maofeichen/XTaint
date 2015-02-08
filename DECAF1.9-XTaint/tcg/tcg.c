@@ -2200,6 +2200,7 @@ static inline int tcg_gen_code_common(TCGContext *s, uint8_t *gen_code_buf,
 #ifdef CONFIG_TCG_XTAINT
 		case INDEX_op_XTAINT_save_temp:
 		{
+//			tcg_out_XTAINT_save_temp(s, args);
 			if(args[3] > X_DEBUG)
 				tcg_out_XTAINT_save_tmp_internal(s, args);
 			else
@@ -2209,8 +2210,14 @@ static inline int tcg_gen_code_common(TCGContext *s, uint8_t *gen_code_buf,
 		case INDEX_op_XTAINT_set_label:
 			tcg_out_label(s, args[0], (long)s->code_ptr);
 			break;
+//		case INDEX_op_XTAINT_setcond_i32:
+//            if (def->flags & TCG_OPF_NOT_PRESENT) {
+//                tcg_abort();
+//            }
+//            dead_args = s->op_dead_args[op_index];
+//            tcg_reg_alloc_op(s, def, opc, args, dead_args);
+//            break;
 #endif /* CONFIG_TCG_XTAINT */
-//		case INDEX_op_XTAINT_brcond_i32:
         default:
             /* Sanity check that we've not introduced any unhandled opcodes. */
             if (def->flags & TCG_OPF_NOT_PRESENT) {

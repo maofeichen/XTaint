@@ -2201,6 +2201,11 @@ static inline void tcg_gen_XTAINT_brcond_i32(TCGCond cond, TCGv_i32 arg1,
 {
     tcg_gen_op4ii_i32(INDEX_op_XTAINT_brcond_i32, arg1, arg2, cond, label_index);
 }
+static inline void tcg_gen_XTAINT_setcond_i32(TCGCond cond, TCGv_i32 ret,
+                                       TCGv_i32 arg1, TCGv_i32 arg2)
+{
+    tcg_gen_op4i_i32(INDEX_op_XTAINT_setcond_i32, ret, arg1, arg2, cond);
+}
 #endif /*CONFIG_TCG_XTAINT */
 
 #if TCG_TARGET_REG_BITS == 32

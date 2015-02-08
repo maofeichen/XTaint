@@ -2073,10 +2073,7 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 			printf("Source shadow is D\n");
 			break;
 		case TEMP_VAL_MEM:
-//			if(size >= X_ST_POINTER)
-//				goto ST_POINTER_MEM;
 		{
-//			if(size >= X_ST_POINTER) break;
 			// because push regs[0], the esp is -4 bytes, result in the relative
 			// addr of src shadow is not correct,
 			// need to +4 byte to cancle
@@ -2124,13 +2121,9 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 
 			tcg_out_label(s, label_isTaint, (tcg_target_long)s->code_ptr);
 		}
-//ST_POINTER_MEM:
 			break;
 		case TEMP_VAL_REG:
-//			if(size >= X_ST_POINTER)
-//				goto ST_POINTER_REG;
 		{
-//			if(size >= X_ST_POINTER) break;
 			TCGReg src_shdw_reg = ts_shdw->reg;
 			int label_isTaint;
 			label_isTaint = gen_new_label();
@@ -2164,15 +2157,10 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 
 			tcg_out_label(s, label_isTaint, (tcg_target_long)s->code_ptr);
 		}
-//ST_POINTER_REG:
 			break;
 		case TEMP_VAL_CONST:
 //			printf("Source shadow val is as C\n");
-//			if(size >= X_ST_POINTER)
-//				goto ST_POINTER_CON;
 			if(ts_shdw->val != 0) { // if source shadow is tainted
-//				if(size >= X_ST_POINTER) break;
-
 				if(size < X_ST_POINTER ){
 					XTAINT_save_tmp_gen_insn(s, args, ts, size);
 					XTAINT_save_tmp_gen_insn(s, args, ots, size);
@@ -2193,13 +2181,12 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 //				tcg_out_pop(s, TCG_REG_EBX);
 				tcg_out_addi(s, TCG_REG_ESP, 24);
 			}
-//ST_POINTER_CON:
 			break;
 		default:
 			printf("Unknown source shadow type, %d\n", ts_shdw->val_type);
 			break;
 	}
-//next:
+next:
 	tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
 }
 
@@ -2218,8 +2205,8 @@ static inline void tcg_out_XTAINT_save_tmp_internal(TCGContext *s, const TCGArg 
 	}
 	else{
 		size -= X_ST_POINTER;
-//					tcg_out_addi(s, TCG_REG_ESP, -24);
 		XTAINT_save_tmp_gen_insn(s, args, ts, size);
+//		tcg_out_addi(s, TCG_REG_ESP, -12);
 		XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
 	}
 
@@ -2573,6 +2560,9 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
         tcg_out_brcond32(s, args[2], args[0], args[1], const_args[1],
                          args[3], 0);
         break;
+#ifdef CONFIG_TCG_XTAINT
+    case INDEX_op_XTAINT_setcond_i32:
+#endif
     case INDEX_op_setcond_i32:
         tcg_out_setcond32(s, args[3], args[0], args[1],
                           args[2], const_args[2]);
@@ -2785,6 +2775,8 @@ static const TCGTargetOpDef x86_op_defs[] = {
 
 #ifdef CONFIG_TCG_XTAINT
     { INDEX_op_XTAINT_save_temp, { "r","r","r" } },
+    { INDEX_op_XTAINT_brcond_i32, {"r","ri"} },
+    { INDEX_op_XTAINT_setcond_i32, { "q", "r", "ri" } },
 #endif /* CONFIG_TCG_XTAINT */
 
 #endif /*CONFIG_TCG_TAITN*/
