@@ -286,6 +286,10 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_brcond2_i32:
 #endif /* TCG_TARGET_REG_BITS */
       case INDEX_op_brcond_i64:
+#ifdef CONFIG_TCG_XTAINT
+      case INDEX_op_XTAINT_func_mark:
+    	  break;
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
       case INDEX_op_discard:   // Remove associated shadow reg

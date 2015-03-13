@@ -238,13 +238,13 @@ static inline void tcg_gen_call_cb_0(void *func)
 
 #ifdef CONFIG_TCG_XTAINT
 /**
- * call_mark
- * mark of call instruction x86
+ * func_mark
+ * mark of function (call & ret) instruction x86
  */
-//static inline void gen_op_XTAINT_call_mark(uint32_t flag, target_ulong func_addr)
-//{
-//	tcg_gen_XTAINT_call_mark(flag, func_addr);
-//}
+static inline void gen_op_XTAINT_func_mark(uint32_t flag, target_ulong func_addr)
+{
+	tcg_gen_XTAINT_func_mark(flag, func_addr);
+}
 /**
  * ret_mark
  * mark of ret instruction of x86
@@ -6451,7 +6451,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 tval &= 0xffff;
             else if(!CODE64(s))
                 tval &= 0xffffffff;
-//            gen_op_XTAINT_call_mark(X_CALL_MARK, tval);
+            gen_op_XTAINT_func_mark(X_CALL_MARK, tval);
             gen_movtl_T0_im(next_eip);
             gen_push_T0(s);
             gen_jmp(s, tval);

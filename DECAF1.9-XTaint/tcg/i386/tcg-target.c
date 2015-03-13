@@ -2369,8 +2369,9 @@ inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
 			break;
 	}
 }
-static inline void tcg_out_XTAINT_call_mark(TCGContext *s, const TCGArg *args){}
-static inline void tcg_out_XTAINT_ret_mark(TCGContext *s, const TCGArg *args){}
+static inline void tcg_out_XTAINT_func_mark(TCGContext *s, const TCGArg *args){
+	printf("test");
+}
 #endif /* CONFIG_TCG_XTAINT */
 
 #endif /* CONFIG_TCG_TAINT */
@@ -2783,7 +2784,6 @@ static const TCGTargetOpDef x86_op_defs[] = {
 #ifdef CONFIG_TCG_XTAINT
     { INDEX_op_XTAINT_save_temp, { "r","r","r" } },
 //    { INDEX_op_XTAINT_call_mark, {} },
-//    { INDEX_op_XTAINT_ret_mark, {} },
     { INDEX_op_XTAINT_brcond_i32, {"r","ri"} },
 //    { INDEX_op_XTAINT_setcond_i32, { "q", "r", "ri" } },
 #endif /* CONFIG_TCG_XTAINT */
