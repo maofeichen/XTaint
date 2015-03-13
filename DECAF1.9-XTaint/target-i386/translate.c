@@ -36,6 +36,11 @@
 #ifdef CONFIG_TCG_TAINT
 #include "shared/tainting/taint_memory.h"
 #include "shared/tainting/tcg_taint.h"
+
+#ifdef CONFIG_TCG_XTAINT
+#include "shared/tainting/XTAINT_save_record.h"
+#endif // CONFIG_TCG_XTAINT
+
 #endif /* CONFIG_TCG_TAINT */
 
 #define PREFIX_REPZ   0x01
@@ -230,6 +235,25 @@ static inline void tcg_gen_call_cb_0(void *func)
 	tcg_gen_helperN(func, 0, sizemask, dh_retvar(void), 0, NULL);
 }
 //DECAF: END
+
+#ifdef CONFIG_TCG_XTAINT
+/**
+ * call_mark
+ * mark of call instruction x86
+ */
+//static inline void gen_op_XTAINT_call_mark(uint32_t flag, target_ulong func_addr)
+//{
+//	tcg_gen_XTAINT_call_mark(flag, func_addr);
+//}
+/**
+ * ret_mark
+ * mark of ret instruction of x86
+ */
+//static inline void gen_op_XTAINT_ret_mark(uint32_t flag)
+//{
+//	tcg_gen_XTAINT_ret_mark(flag);
+//}
+#endif // CONFIG_TCG_XTAINT
 
 static inline void gen_op_movl_T0_0(void)
 {
@@ -6427,6 +6451,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 tval &= 0xffff;
             else if(!CODE64(s))
                 tval &= 0xffffffff;
+//            gen_op_XTAINT_call_mark(X_CALL_MARK, tval);
             gen_movtl_T0_im(next_eip);
             gen_push_T0(s);
             gen_jmp(s, tval);

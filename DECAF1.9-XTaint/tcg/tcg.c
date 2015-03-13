@@ -1337,6 +1337,11 @@ if (!presweep)
             /* mark end of basic block */
             tcg_la_bb_end(s, dead_temps);
             break;
+#ifdef CONFIG_TCG_XTAINT
+        case INDEX_op_XTAINT_set_label:
+        	args--;
+        	break;
+#endif /* CONFIG_TCG_XTAINT */
         case INDEX_op_debug_insn_start:
             args -= def->nb_args;
             break;
@@ -1351,6 +1356,11 @@ if (!presweep)
             break;
         case INDEX_op_end:
             break;
+#ifdef CONFIG_TCG_XTAINT
+//        case INDEX_op_XTAINT_call_mark:
+//        	args -= 2;
+//        	break;
+#endif /**/
             /* XXX: optimize by hardcoding common cases (e.g. triadic ops) */
         default:
             args -= def->nb_args;
@@ -2207,6 +2217,12 @@ static inline int tcg_gen_code_common(TCGContext *s, uint8_t *gen_code_buf,
 				tcg_out_XTAINT_save_temp(s, args);
 		}
 			break;
+//		case INDEX_op_XTAINT_call_mark:
+//			tcg_out_XTAINT_call_mark(s, args);
+//			break;
+//		case INDEX_op_XTAINT_ret_mark:
+//			tcg_out_XTAINT_ret_mark(s, args);
+//			break;
 		case INDEX_op_XTAINT_set_label:
 			tcg_out_label(s, args[0], (long)s->code_ptr);
 			break;

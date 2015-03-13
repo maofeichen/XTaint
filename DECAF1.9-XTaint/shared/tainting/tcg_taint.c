@@ -678,7 +678,8 @@ static inline int gen_taintcheck_insn(int search_pc)
 
             	  // should be t0 instead of arg1
             	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag + X_DEBUG);
-//            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, flag);
+//            	  XTaint_save_tmp_two_oprnd(orig0, orig1, t0, flag);
+//            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1?, flag);
 
             	  gen_XTAINT_set_label(src_taint_label);
               }
@@ -782,18 +783,18 @@ static inline int gen_taintcheck_insn(int search_pc)
 #if 1 // AWH - DEBUG
       case INDEX_op_qemu_st32:
 #ifdef CONFIG_TCG_XTAINT
-    	  flag = X_LONG + X_ST + X_ST_POINTER;
+    	  flag = X_LONG + X_ST;
 #endif
         //DUMMY_TAINT(nb_oargs, nb_args);
         //break;
  
       case INDEX_op_qemu_st8:
 #ifdef CONFIG_TCG_XTAINT
-    	  flag = X_BYTE + X_ST + X_ST_POINTER;
+    	  flag = X_BYTE + X_ST;
 #endif
       case INDEX_op_qemu_st16:
 #ifdef CONFIG_TCG_XTAINT
-    	  flag = X_WORD + X_ST + X_ST_POINTER;
+    	  flag = X_WORD + X_ST;
 #endif
 #else
       case INDEX_op_qemu_st8: 
@@ -856,7 +857,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 //				tcg_gen_XTAINT_brcond_i32(TCG_COND_EQ, arg1, t_zero, src_taint_label);
 //
 //            	XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag + X_DEBUG);
-				XTaint_save_tmp_two_oprnd(ret, addr, arg0, flag);
+				XTaint_save_tmp_two_oprnd(ret, addr, arg0, flag + X_ST_POINTER - X_ST);
 //
 //				gen_XTAINT_set_label(src_taint_label);
             }

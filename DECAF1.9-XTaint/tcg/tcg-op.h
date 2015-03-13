@@ -2192,6 +2192,14 @@ static inline void tcg_gen_XTAINT_save_temp(TCGv src_shdw,
 {
 	tcg_gen_op4_i32(INDEX_op_XTAINT_save_temp, src_shdw, src, dest, flag);
 }
+//static inline void tcg_gen_XTAINT_call_mark(tcg_target_long flag, tcg_target_long func_addr)
+//{
+//	tcg_gen_op2i_i32(INDEX_op_XTAINT_call_mark, flag, func_addr);
+//}
+//static inline void tcg_gen_XTAINT_ret_mark(uint32_t flag)
+//{
+//	tcg_gen_op1i(INDEX_op_XTAINT_ret_mark, flag);
+//}
 static inline void gen_XTAINT_set_label(int n)
 {
     tcg_gen_op1i(INDEX_op_XTAINT_set_label, n);
@@ -2201,11 +2209,11 @@ static inline void tcg_gen_XTAINT_brcond_i32(TCGCond cond, TCGv_i32 arg1,
 {
     tcg_gen_op4ii_i32(INDEX_op_XTAINT_brcond_i32, arg1, arg2, cond, label_index);
 }
-static inline void tcg_gen_XTAINT_setcond_i32(TCGCond cond, TCGv_i32 ret,
-                                       TCGv_i32 arg1, TCGv_i32 arg2)
-{
-    tcg_gen_op4i_i32(INDEX_op_XTAINT_setcond_i32, ret, arg1, arg2, cond);
-}
+//static inline void tcg_gen_XTAINT_setcond_i32(TCGCond cond, TCGv_i32 ret,
+//                                       TCGv_i32 arg1, TCGv_i32 arg2)
+//{
+//    tcg_gen_op4i_i32(INDEX_op_XTAINT_setcond_i32, ret, arg1, arg2, cond);
+//}
 #endif /*CONFIG_TCG_XTAINT */
 
 #if TCG_TARGET_REG_BITS == 32

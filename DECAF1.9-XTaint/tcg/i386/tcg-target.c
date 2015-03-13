@@ -2369,6 +2369,8 @@ inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
 			break;
 	}
 }
+static inline void tcg_out_XTAINT_call_mark(TCGContext *s, const TCGArg *args){}
+static inline void tcg_out_XTAINT_ret_mark(TCGContext *s, const TCGArg *args){}
 #endif /* CONFIG_TCG_XTAINT */
 
 #endif /* CONFIG_TCG_TAINT */
@@ -2561,7 +2563,7 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
                          args[3], 0);
         break;
 #ifdef CONFIG_TCG_XTAINT
-    case INDEX_op_XTAINT_setcond_i32:
+//    case INDEX_op_XTAINT_setcond_i32:
 #endif
     case INDEX_op_setcond_i32:
         tcg_out_setcond32(s, args[3], args[0], args[1],
@@ -2757,6 +2759,11 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
     case INDEX_op_DECAF_checkeip:
     	break;
 #endif
+#ifdef CONFIG_TCG_XTAINT
+//    case INDEX_op_XTAINT_call_mark:
+//		tcg_out_XTAINT_call_mark(s, args);
+//		break;
+#endif /* CONFIG_TCG_XTAINT */
     default:
         tcg_abort();
     }
@@ -2775,8 +2782,10 @@ static const TCGTargetOpDef x86_op_defs[] = {
 
 #ifdef CONFIG_TCG_XTAINT
     { INDEX_op_XTAINT_save_temp, { "r","r","r" } },
+//    { INDEX_op_XTAINT_call_mark, {} },
+//    { INDEX_op_XTAINT_ret_mark, {} },
     { INDEX_op_XTAINT_brcond_i32, {"r","ri"} },
-    { INDEX_op_XTAINT_setcond_i32, { "q", "r", "ri" } },
+//    { INDEX_op_XTAINT_setcond_i32, { "q", "r", "ri" } },
 #endif /* CONFIG_TCG_XTAINT */
 
 #endif /*CONFIG_TCG_TAITN*/
