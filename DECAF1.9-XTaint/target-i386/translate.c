@@ -245,14 +245,6 @@ static inline void gen_op_XTAINT_func_mark(uint32_t flag, target_ulong func_addr
 {
 	tcg_gen_XTAINT_func_mark(flag, func_addr);
 }
-/**
- * ret_mark
- * mark of ret instruction of x86
- */
-//static inline void gen_op_XTAINT_ret_mark(uint32_t flag)
-//{
-//	tcg_gen_XTAINT_ret_mark(flag);
-//}
 #endif // CONFIG_TCG_XTAINT
 
 static inline void gen_op_movl_T0_0(void)
@@ -6377,7 +6369,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_eob(s);
         break;
     case 0xc3: /* ret */
-        gen_op_XTAINT_func_mark(X_RET_MARK, 0);
+#ifdef CONFIG_TCG_XTAINT
+    	if(xtaint_save_temp_enabled)
+    		gen_op_XTAINT_func_mark(X_RET_MARK, 0);
+#endif /* CONFIG_TCG_XTAINT */
         gen_pop_T0(s);
         gen_pop_update(s);
         if (s->dflag == 0)
@@ -6452,7 +6447,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 tval &= 0xffff;
             else if(!CODE64(s))
                 tval &= 0xffffffff;
-            gen_op_XTAINT_func_mark(X_CALL_MARK, tval);
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled)
+            	gen_op_XTAINT_func_mark(X_CALL_MARK, tval);
+#endif /* CONFIG_TCG_XTAINT */
             gen_movtl_T0_im(next_eip);
             gen_push_T0(s);
             gen_jmp(s, tval);
