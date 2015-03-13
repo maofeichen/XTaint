@@ -6377,6 +6377,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_eob(s);
         break;
     case 0xc3: /* ret */
+        gen_op_XTAINT_func_mark(X_RET_MARK, 0);
         gen_pop_T0(s);
         gen_pop_update(s);
         if (s->dflag == 0)

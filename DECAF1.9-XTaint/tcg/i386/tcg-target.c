@@ -2369,8 +2369,41 @@ inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
 			break;
 	}
 }
+
+/*
+ * push func mark into stack and call corresponding helper function
+ * if it is call insn, push the function addr, then push the flag
+ * if it is ret insn, push the flag only
+ * args[0]: mark
+ * args[1]: addr if it is call insn
+ */
 static inline void tcg_out_XTAINT_func_mark(TCGContext *s, const TCGArg *args){
-	printf("test");
+	if(args[0] == X_CALL_MARK) {
+		tcg_out_pushi(s, args[1]);	// push the addr
+		tcg_out_pushi(s, args[0]);	// push the flag
+	} else if(args[0] == X_RET_MARK)
+		tcg_out_pushi(s, args[0]); // push the flag only
+	else{
+		fprintf(stderr, "unkonw function mark, abort\n");
+		tcg_abort();
+	}
+
+	tcg_out_push(s, TCG_REG_EAX);
+//	tcg_out_push(s, TCG_REG_EBX);
+	tcg_out_push(s, TCG_REG_ECX);
+	tcg_out_push(s, TCG_REG_EDX);
+	tcg_out_calli(s, (tcg_target_long)XTAINT_log_func_mark);
+	tcg_out_pop(s, TCG_REG_EDX);
+	tcg_out_pop(s, TCG_REG_ECX);
+//	tcg_out_pop(s, TCG_REG_EBX);
+	tcg_out_pop(s, TCG_REG_EAX);
+
+	// restore stack
+	if(args[0] == X_CALL_MARK)
+		tcg_out_addi(s, TCG_REG_ESP, 0x8);
+	else if(args[0] == X_RET_MARK)
+		tcg_out_addi(s, TCG_REG_ESP, 0x4);
+
 }
 #endif /* CONFIG_TCG_XTAINT */
 

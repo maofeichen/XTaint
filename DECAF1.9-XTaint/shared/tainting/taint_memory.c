@@ -701,6 +701,53 @@ void XTAINT_log_temp() {
 //	printf("Ptemp: des flag, des addr, des val is: %x, \t%x, \t%x\n", *des_flag, *des_addr, *des_val);
 }
 
+/*
+ * log call or ret mark in the stack
+ * stack organize:
+ * 		flag (call or ret)
+ * 		addr (if it is call, the function addr)
+ *
+ * If it is call, log both flag and addr
+ * 			ret, only log flag
+ */
+void XTAINT_log_func_mark(){
+	register int ebp asm("ebp");
+	uint8_t offset_ebp = 0x14;	// first value addr relative to ebp
+	uint8_t sz = 0x4;			// size of next value
+
+	uint32_t *func_addr;
+	uint8_t *flag;
+
+	// log first value: flag
+	flag = (uint8_t *) (ebp + offset_ebp);
+	*xtaint_ptr_cur_rcrd++ = *flag;
+
+	// log second value: if call, then func addr; otherwise 0
+	if(*flag == X_CALL_MARK){
+		func_addr = (uint32_t *) (ebp + offset_ebp + sz);
+		*(uint32_t *) xtaint_ptr_cur_rcrd = *func_addr;		// log func addr
+	} else if(*flag == X_RET_MARK){
+		*(uint32_t *) xtaint_ptr_cur_rcrd = 0;		// log 0 instead
+	} else{
+		fprintf(stderr, "unkonw function mark, abort\n");
+		exit(1);
+	}
+	xtaint_ptr_cur_rcrd += sz;
+
+	// log 3rd value
+	// the format of record is <flag, addr, val>, but no value here, use 0
+	*(uint32_t *) xtaint_ptr_cur_rcrd = 0;
+	xtaint_ptr_cur_rcrd += sz;
+
+	xtaint_cur_pool_sz -= 9;			// update the pool avaiable size
+	if (xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		// printf("threshold hit\n");
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
+}
+
 int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data) {
 	if (!taint_tracking_enabled)
 		monitor_printf(default_mon, "Ignored, taint tracking is disabled\n");
