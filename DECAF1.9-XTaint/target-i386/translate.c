@@ -6356,6 +6356,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         /************************/
         /* control */
     case 0xc2: /* ret im */
+#ifdef CONFIG_TCG_XTAINT
+    	if(xtaint_save_temp_enabled)
+    		gen_op_XTAINT_func_mark(X_RET_MARK, 0);
+#endif /* CONFIG_TCG_XTAINT */
         val = ldsw_code(s->pc);
         s->pc += 2;
         gen_pop_T0(s);
@@ -6382,6 +6386,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_eob(s);
         break;
     case 0xca: /* lret im */
+#ifdef CONFIG_TCG_XTAINT
+    	if(xtaint_save_temp_enabled)
+    		gen_op_XTAINT_func_mark(X_RET_MARK, 0);
+#endif /* CONFIG_TCG_XTAINT */
         val = ldsw_code(s->pc);
         s->pc += 2;
     do_lret:
@@ -6410,6 +6418,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_eob(s);
         break;
     case 0xcb: /* lret */
+#ifdef CONFIG_TCG_XTAINT
+    	if(xtaint_save_temp_enabled)
+    		gen_op_XTAINT_func_mark(X_RET_MARK, 0);
+#endif /* CONFIG_TCG_XTAINT */
         val = 0;
         goto do_lret;
     case 0xcf: /* iret */
@@ -6466,6 +6478,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             offset = insn_get(s, ot);
             selector = insn_get(s, OT_WORD);
 
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled)
+            	gen_op_XTAINT_func_mark(X_CALL_MARK, tval);
+#endif /* CONFIG_TCG_XTAINT */
             gen_op_movl_T0_im(selector);
             gen_op_movl_T1_imu(offset);
         }

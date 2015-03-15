@@ -186,11 +186,19 @@ void xtaint_flush_to_file(FILE *xtaint_fp) {
 		fprintf(xtaint_fp, "%x\t", *(uint32_t *) i_ptr);	// src_val
 		i_ptr += 4;
 
+		// if function mark, print newline
+		if(*(i_ptr - 9) == X_CALL_MARK || *(i_ptr - 9) == X_RET_MARK )
+			fprintf(xtaint_fp, "\n");
+
 		fprintf(xtaint_fp, "%x\t", *i_ptr++);	// des_flag
 		fprintf(xtaint_fp, "%x\t", *(uint32_t *) i_ptr);	// des_addr
 		i_ptr += 4;
 		fprintf(xtaint_fp, "%x\t", *(uint32_t *) i_ptr);	// des_val
 		i_ptr += 4;
+
+		// if function mark, print newline
+		if((*i_ptr - 9 == X_CALL_MARK) || (*i_ptr - 9 == X_RET_MARK) )
+			fprintf(xtaint_fp, "\n");
 
 		fprintf(xtaint_fp, "\n");
 	}
