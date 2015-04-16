@@ -4792,6 +4792,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             break;
         case 2: /* call Ev */
             /* XXX: optimize if memory (no 'and' is necessary) */
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled)
+            	gen_op_XTAINT_func_mark(X_CALL_MARK, 0);
+#endif /* CONFIG_TCG_XTAINT */
             if (s->dflag == 0)
                 gen_op_andl_T0_ffff();
             next_eip = s->pc - s->cs_base;
@@ -4801,6 +4805,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_eob(s);
             break;
         case 3: /* lcall Ev */
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled)
+            	gen_op_XTAINT_func_mark(X_CALL_MARK, 0);
+#endif /* CONFIG_TCG_XTAINT */
             gen_op_ld_T1_A0(ot + s->mem_index);
             gen_add_A0_im(s, 1 << (ot - OT_WORD + 1));
             gen_op_ldu_T0_A0(OT_WORD + s->mem_index);
@@ -6480,7 +6488,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
 #ifdef CONFIG_TCG_XTAINT
             if(xtaint_save_temp_enabled)
-            	gen_op_XTAINT_func_mark(X_CALL_MARK, tval);
+            	gen_op_XTAINT_func_mark(X_CALL_MARK, 0);
 #endif /* CONFIG_TCG_XTAINT */
             gen_op_movl_T0_im(selector);
             gen_op_movl_T1_imu(offset);

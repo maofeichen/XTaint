@@ -178,17 +178,23 @@ static void free_taint_memory_page_table(void) {
 
 void xtaint_flush_to_file(FILE *xtaint_fp) {
 	uint8_t *i_ptr = xtaint_pool;
+	uint8_t *func_mark_ptr;
 
 	while (i_ptr < xtaint_ptr_cur_rcrd) {
+		func_mark_ptr = i_ptr;
+		if(*func_mark_ptr == X_CALL_MARK || *func_mark_ptr == X_RET_MARK)
+			goto func_mark;
+
 		fprintf(xtaint_fp, "%x\t", *i_ptr++);	// src_flag
 		fprintf(xtaint_fp, "%x\t", *(uint32_t *) i_ptr);	// src_addr
 		i_ptr += 4;
 		fprintf(xtaint_fp, "%x\t", *(uint32_t *) i_ptr);	// src_val
 		i_ptr += 4;
 
+		func_mark_ptr = i_ptr;
 		// if function mark, print newline
-		if(*(i_ptr - 9) == X_CALL_MARK || *(i_ptr - 9) == X_RET_MARK )
-			fprintf(xtaint_fp, "\n");
+		if(*func_mark_ptr == X_CALL_MARK || *func_mark_ptr == X_RET_MARK )
+			goto func_mark;
 
 		fprintf(xtaint_fp, "%x\t", *i_ptr++);	// des_flag
 		fprintf(xtaint_fp, "%x\t", *(uint32_t *) i_ptr);	// des_addr
@@ -196,9 +202,15 @@ void xtaint_flush_to_file(FILE *xtaint_fp) {
 		fprintf(xtaint_fp, "%x\t", *(uint32_t *) i_ptr);	// des_val
 		i_ptr += 4;
 
-		// if function mark, print newline
-		if((*i_ptr - 9 == X_CALL_MARK) || (*i_ptr - 9 == X_RET_MARK) )
-			fprintf(xtaint_fp, "\n");
+		fprintf(xtaint_fp, "\n");
+		continue;
+
+func_mark:
+		fprintf(xtaint_fp, "%x\t", *i_ptr++);	// src_flag
+		fprintf(xtaint_fp, "%x\t", *(uint32_t *) i_ptr);	// src_addr
+		i_ptr += 4;
+		fprintf(xtaint_fp, "%x\t", *(uint32_t *) i_ptr);	// src_val
+		i_ptr += 4;
 
 		fprintf(xtaint_fp, "\n");
 	}
