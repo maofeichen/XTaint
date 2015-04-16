@@ -1,0 +1,10 @@
+CALL	0
+CALL	1
+CALL	2
+RET	2
+RET	1
+RET	0
+CALL	0
+RET	0
+RET	-1
+Error: #RET > #CALL
