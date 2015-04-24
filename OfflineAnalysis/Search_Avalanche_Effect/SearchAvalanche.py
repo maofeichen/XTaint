@@ -14,6 +14,8 @@ desc:
 @author: mchen
 '''
 
+from operator import itemgetter
+
 XTAINT_LOG_DIR = "/home/mchen/Workspace-Linuxmint/XTaint/Result/"
 XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block-heap_gv_sv_stack-nogdb.txt"
 
@@ -109,9 +111,18 @@ def create_buffer_set():
                 prev_item_index -= 1
 
             if is_match_found:
-                """if found, add records between to set"""
+                """if found, add records of same function to set"""
 #                 print("found a match")
-                buffer_set = [prev_item, prev_item_index, item, item_index]
+                buffers = {}
+                
+                call_mark = prev_item.copy()
+                call_mark['CALL']['line_num'] = prev_item_index
+                ret_mark = item.copy()
+                ret_mark['RET']['line_num'] = item_index
+                buffer_head = [call_mark, ret_mark]
+                buffers['head'] = buffer_head
+                
+                buffers['buffer'] = []
                 for record in local_xt_log_list[prev_item_index:item_index]:
                     if "RET" not in record and\
                             "CALL" not in record and \
@@ -120,24 +131,96 @@ def create_buffer_set():
 
                         """only save if src or dest is memory addr"""
                         if len(record['record']['src']['addr']) == 8:
-                            buffer_set.append(record['record']['src'])
-                        elif len(record['record']['dest']['addr']) == 8:
-                            buffer_set.append(record['record']['dest'])
+                            mem_cell = {'flag':record['record']['src']['flag'],\
+                                        'addr':int(record['record']['src']['addr'],16),\
+                                        'val':record['record']['src']['val']}
+                            buffers['buffer'].append(mem_cell)
                             
-                xtaint_buffer_set_list.append(buffer_set)
+                        elif len(record['record']['dest']['addr']) == 8:
+                            mem_cell = {'flag':record['record']['dest']['flag'],\
+                                        'addr':int(record['record']['dest']['addr'],16),\
+                                        'val':record['record']['dest']['val']}
+                            buffers['buffer'].append(mem_cell)
+                            
+                xtaint_buffer_set_list.append(buffers)
                 
 #             else: print("matched CALL not found")
             
         item_index += 1
+
+def sort_buffer_set():    
+    """for all memory buffers in the same function call, sort them via 'addr'
+    Args:
+        global - xtaint_buffer_set_list
+    Return:
+        save results in xtaint_buffer_set_list
+    
+    (Needs to be called after create_buffer_set)
+    At this time the xtaint_buffer_set_list forms as:
+        [{'head':[{'CALL':{} }, {'RET':{} } ], 'buffer':[{}, {}, ...] }, {}, ...]
+    each member of the list is a dictionary, with key head and buffer; the 
+    value of buffer is a list, which contains all the 
+        {'flag':<>, 'addr':<>, 'val':<> }
+    in it, needs to sort items in the buffer via the 'addr' value
+    """
+    for item in xtaint_buffer_set_list:
+        item['buffer'] = sorted(item['buffer'], key=itemgetter('addr') )
+#         for mem_cell in item['buffer']:
+#             print(mem_cell)
+
+def create_contin_buffer_set():
+    """create continous buffer sets of buffers in same function call
+    Args:
+        global - xtaint_buffer_set_list
+    Return:
+        save results in xtaint_buffer_set_list
         
+    for {} of each function call, the value of key 'buffer' is sorted list
+    that contains all records (i.e., {'flag':<>, 'addr':<>, 'val':<> })
+    of the function call
+    
+    it needs to break the 'buffer' list into several sub-lists, such that,
+    for 'addr' of each record, if their interval smaller than a default
+    value, they belong to the same continous buffer set
+    """
+    default_interval = 4
+    for item in xtaint_buffer_set_list:
+        buf_set = []
+        contin_buf_set = []
+        record_index = 0
+        for record in item['buffer']:
+            if record_index == 0:
+                contin_buf_set.append(record)
+            else:
+                interval = record['addr'] - contin_buf_set[-1]['addr']
+                if interval > 0 and interval <= default_interval:
+                    """continous buffer (get rid of duplicate buffer)"""
+                    contin_buf_set.append(record)
+                elif interval > default_interval:
+                    buf_set.append(contin_buf_set)
+                    contin_buf_set = []
+                    contin_buf_set.append(record)
+                     
+            record_index += 1
+        
+        """add last contin_buf_set"""    
+        buf_set.append(contin_buf_set)
+        item['buffer'] = buf_set
+     
 def main():
     preprocess()
 #     for record in xtaint_log_list:
 #         print(record)
     create_buffer_set()
+    sort_buffer_set()
+    create_contin_buffer_set()
     for member in xtaint_buffer_set_list:
-        for record in member:
-            print(record)
+        for head in member['head']:
+            print(head)
+        for sub_list in member['buffer']:
+            for record in sub_list:
+                print(record)
  
 if __name__ == '__main__':
     main()
+
