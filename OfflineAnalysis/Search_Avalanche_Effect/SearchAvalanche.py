@@ -13,8 +13,10 @@ desc:
             the sets of buffers
 @author: mchen
 '''
-
+import sys
 from operator import itemgetter
+
+# sys.stdout.flush()
 
 XTAINT_LOG_DIR = "/home/mchen/Workspace-Linuxmint/XTaint/Result/"
 XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block-heap_gv_sv_stack-nogdb.txt"
@@ -22,8 +24,9 @@ XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block-heap_gv_sv_stack-nogdb.txt"
 CALL = "14"   # 14 is CALL instruction
 RET = "18"    # 18 is RET instruction
 
-xtaint_log_list = []
-xtaint_buffer_set_list = []
+xtaint_log_list         = []
+hash_xtaint_log         = {}
+xtaint_buffer_set_list  = []
 
 def preprocess():
     """pre-process XTaint log.
@@ -73,6 +76,35 @@ def preprocess():
                 xtaint_log_list.append(record);
 
     xt_log_fp.close()
+
+def create_hash_xt_log():
+    """create hash table (dictionary) of xtaint_log_list for better
+    performance
+    @precondition: xtaint_log_list has to be created by preprocess
+        before calling this function
+    @param global: xtaint_log_list
+    @return: global: hash_xtaint_log"""
+    for elem in xtaint_log_list:
+        if "record" in elem:
+#             toint = int(elem['record']['src']['addr'],16)
+            src = elem['record']['src']['flag'] + "-" + elem['record']['src']['addr']
+#             src = elem['record']['src']['flag'] + "-" + toint
+#             print(src)
+            hash_xtaint_log[src] = []
+    
+    i = 0 
+    for elem in xtaint_log_list:
+        if "record" in elem:
+#             toint = int(elem['record']['src']['addr'],16)
+            src = elem['record']['src']['flag'] + "-" + elem['record']['src']['addr']
+#             src = elem['record']['src']['flag'] + "-" + toint
+            dest = {'dest':elem['record']['dest'], 'time':i}
+            hash_xtaint_log[src].append(dest)
+            i += 1
+    
+#     for key in hash_xtaint_log:
+#         for dest in hash_xtaint_log[key]:
+#             print(dest)
 
 def create_buffer_set():
     """create sets of buffers for each function call.
@@ -147,6 +179,8 @@ def create_buffer_set():
 #             else: print("matched CALL not found")
             
         item_index += 1
+    
+    del local_xt_log_list[:]
 
 def sort_buffer_set():    
     """for all memory buffers in the same function call, sort them via 'addr'
@@ -185,7 +219,7 @@ def create_contin_buffer_set():
     """
     default_interval = 4
     for item in xtaint_buffer_set_list:
-        buf_set = []
+        buf_sets = []
         contin_buf_set = []
         record_index = 0
         for record in item['buffer']:
@@ -193,33 +227,387 @@ def create_contin_buffer_set():
                 contin_buf_set.append(record)
             else:
                 interval = record['addr'] - contin_buf_set[-1]['addr']
+                 
                 if interval > 0 and interval <= default_interval:
                     """continous buffer (get rid of duplicate buffer)"""
                     contin_buf_set.append(record)
                 elif interval > default_interval:
-                    buf_set.append(contin_buf_set)
+                    buf_sets.append(contin_buf_set)
                     contin_buf_set = []
                     contin_buf_set.append(record)
-                     
+                      
             record_index += 1
         
         """add last contin_buf_set"""    
-        buf_set.append(contin_buf_set)
-        item['buffer'] = buf_set
-     
+        buf_sets.append(contin_buf_set)
+        item['buffer'] = buf_sets
+    del buf_sets[:]
+    del contin_buf_set[:]
+
+def del_val(xtaint_node):
+    """ delete val key component of xtaint_node
+    a xtaint_node is a dictionary, forms as:
+        {'flag':<>, 'addr':<>, 'val':<>}
+        
+    Args:
+        a xtaint_node dictonary
+    Return:
+        a xtaint_node dictionary without key 'val'
+            {'flag':<>, 'addr':<>}
+    """
+    new_xtaint_node = {'flag':xtaint_node['flag'], 'addr':xtaint_node['addr']}
+    return  new_xtaint_node
+    
+
+def is_path_exist(src, dest, usehash, time):
+    """ determine if a path between the given src and dest
+    Args:
+        src: {'flag':<>, 'addr':<>, 'val':<>}
+        dest: {'flag':<>, 'addr':<>, 'val':<>}
+    Return:
+        return true if such a path exists; otherwise return false
+    """
+    if usehash:
+#         set_src = [src] # set of dests that src can reach, init with src
+#         tohex = hex(src['addr'])[2:]
+        key = src['flag'] + "-" + src['addr']
+#         key = src['flag'] + "-" + tohex
+        if key not in hash_xtaint_log:
+            return False
+        
+        dest_list = hash_xtaint_log[key]
+        
+        min_time = sys.maxsize
+        for elem in dest_list:
+            if min_time > elem['time']:
+                min_time = elem['time']
+        if time > min_time:
+            return False
+        
+        for elem in dest_list:    
+            if time <= elem['time']:
+                if dest['flag'] == elem['dest']['flag']\
+                        and dest['addr'] == elem['dest']['addr']:
+                    return True
+                else:
+                    time = elem['time']
+                    new_src = elem['dest']
+                    return is_path_exist(new_src, dest, True, time)
+            
+    else:
+        new_src = del_val(src)
+        new_dest = del_val(dest) 
+        set_src = [new_src] # set of dests that src can reach, init with src
+
+        for item in xtaint_log_list:
+            if "record" in item:
+                src_of_record = del_val(item['record']['src'])
+                dest_of_record = del_val(item['record']['dest'])
+                if src_of_record in set_src \
+                        and dest_of_record not in set_src:
+                    set_src.append(dest_of_record)
+    
+        if new_dest in set_src: return True
+        else: return False
+
+def srch_aval_src_dest_buf(src_buf, dest_buf):
+    """search avalanche effect given two continuous buffers
+    Args:
+        src_buf: source continuous buffer
+        dest_buf: destination continuous buffer
+        
+        both are lists, form as:
+            [
+                1st mem cell: {'flag'<>, 'addr':<>, 'val':<>}
+                2nd mem cell: {'flag'<>, 'addr':<>, 'val':<>}
+                3rd mem cell: {'flag'<>, 'addr':<>, 'val':<>}
+                ...
+            ]
+    Return:
+        a list of aval_pair input & output buffers if there exists avalanche
+        effect between them
+        [
+            (1st aval_pair input & output buffers):
+            {
+                'in_buf':
+                [
+                    {'flag'<>, 'addr':<>, 'val':<>}
+                    ...
+                ]
+                
+                'out_buf':
+                [
+                    {'flag'<>, 'addr':<>, 'val':<>}
+                    ...
+                ]
+            }
+            (2nd aval_pair input & output buffers):
+            {
+                'in_buf':
+                [
+                    {'flag'<>, 'addr':<>, 'val':<>}
+                    ...
+                ]
+                
+                'out_buf':
+                [
+                    {'flag'<>, 'addr':<>, 'val':<>}
+                    ...
+                ]
+            }
+            ...
+        ]
+    
+    """
+    aval_src_destbufs_sets  =   []
+    aval_in_out_bufs        =   {}
+    aval_in_out_bufs_sets   =   []
+    
+    for nd_src in src_buf:
+        aval_src_destbufs = {}
+        aval_src_destbufs['src_node'] = nd_src
+        aval_src_destbufs['dest_bufs'] = []
+        
+        nd_src_tostr = {'flag':nd_src['flag'],\
+                        'addr':hex(nd_src['addr'])[2:],\
+                        'val':nd_src['val']}
+        for nd_dest in dest_buf:
+#             if is_path_exist(nd_src, nd_dest):
+            nd_dest_tostr = {'flag':nd_dest['flag'],\
+                        'addr':hex(nd_dest['addr'])[2:],\
+                        'val':nd_dest['val']}
+            if is_path_exist(nd_src_tostr, nd_dest_tostr, True, 0):               
+                aval_src_destbufs['dest_bufs'].append(nd_dest)
+        if len(aval_src_destbufs['dest_bufs']) > 0:
+            aval_src_destbufs_sets.append(aval_src_destbufs)
+            
+    for entr in aval_in_out_bufs_sets:
+        print("entry source node is:")
+        print(entr['src_node'])
+        print("dest buf is:")
+        for elem in entr['dest_bufs']:
+            print(elem)
+    
+#     counter_continu_dest_buf = 0
+# 
+#     aval_pair_sets = []
+#     aval_pair = {}
+#     
+#     src_node_i = 0
+#     for src_node in src_buf:
+#         if src_node_i == 0:
+#             aval_pair['in_buf'] = [src_node]
+#         else:
+#             counter_continu_dest_buf = 0
+#             for dest_node in dest_buf:
+#                 is_path =  is_path_exist(src_node, dest_node)
+#                 if not is_path:
+#                     break
+#                 
+#                 counter_continu_dest_buf += 1
+#             
+#         src_node_i += 1
+#         
+#     
+#     return aval_pair_sets
+
+def search_avalanche():
+    """search avalanche effect between continuous buffer set
+    Args:
+        global - xtaint_buffer_set_list, which contains continuous buffer
+        sets of each function call (ordered by completion time), form as:
+        [
+            (1st complete function call):
+            {
+                'head':
+                {
+                    'CALL':{}
+                    'RET':{}
+                }
+                'buffer':
+                {
+                    [
+                        (1st continuous buffer set):
+                        [
+                            {'flag'<>, 'addr':<>, 'val':<>}
+                            {'flag'<>, 'addr':<>, 'val':<>}
+                            ...
+                        ]
+                        
+                        (2nd continuous buffer set):
+                        [
+                            {'flag'<>, 'addr':<>, 'val':<>}
+                            {'flag'<>, 'addr':<>, 'val':<>}
+                            ...
+                        ]
+                        
+                        ...
+                    ]
+                }
+                    
+            }
+            
+            (2nd complete function call):
+            {
+                'head':
+                {
+                    'CALL':{}
+                    'RET':{}
+                }
+                'buffer':
+                {
+                    [
+                        (1st continuous buffer set):
+                        [
+                            {'flag'<>, 'addr':<>, 'val':<>}
+                            {'flag'<>, 'addr':<>, 'val':<>}
+                            ...
+                        ]
+                        
+                        (2nd continuous buffer set):
+                        [
+                            {'flag'<>, 'addr':<>, 'val':<>}
+                            {'flag'<>, 'addr':<>, 'val':<>}
+                            ...
+                        ]
+                        
+                        ...
+                    ]
+                }
+                    
+            }
+            ...
+        ]
+    
+    Return:
+        an avalanche effect list, which contains all pair input and output
+        buffers that have avalanche effect, forms as:
+        [
+            (1st pair input & output buffer as dict):
+            {
+                'head_in_buf':<>(which function call & continuous buffer sets
+                    this input buffer comes from)
+                'head_out_buf':<>(which function call & continuous buffer sets
+                    this output buffer comes from)
+                'in_buf':(a continuous buffer)
+                [
+                    1st mem cell as dict {}
+                    2nd mem cell as dict {}
+                    ...
+                ]
+                'out_buf':(a continuous buffer)
+                [
+                    1st mem cell as dict {}
+                    2nd mem cell as dict {}
+                    ...
+                ]
+            }
+            (2nd pair input & output buffer as dict):
+            {
+                'head_in_buf':<>(which function call & continuous buffer sets
+                    this input buffer comes from)
+                'head_out_buf':<>(which function call & continuous buffer sets
+                    this output buffer comes from)
+                'in_buf':(a continuous buffer)
+                [
+                    1st mem cell as dict {}
+                    2nd mem cell as dict {}
+                    ...
+                ]
+                'out_buf':(a continuous buffer)
+                [
+                    1st mem cell as dict {}
+                    2nd mem cell as dict {}
+                    ...
+                ]
+            }
+            ...
+        ]
+    Algorithm:
+        brute force search, the continuous buffer sets organize as:
+            1st func call: [b1, b2, b3, ...]
+            2nd func call: [b1, b2, b3, ...]
+            3rd func call: [b1, b2, b3, ...]
+            ...
+        
+        each b in any func call is a continuous buffer set, the search is
+        as:
+            begin with 1st func call continuous buffer sets:
+                all b1, b2, ... need to search ALL continuous buffer sets in
+                2nd func call, 3rd func call, until end
+            after 1st func call finishes, begin with 2nd func call:
+                 all b1, b2, ... need to search ALL continuous buffer sets in
+                3rd func call, 4th func call, until end
+            ...
+            repeat until end
+            
+            essentially it is for continuous buffer sets in same func call,
+            NO need to search between them
+            for each continuous buffer set, search it between EVERY 
+            continuous buffer set after its func call
+    """
+    i_in_func_compl = 0
+    i_out_func_compl = 0
+    
+    i_in_conti_buf = 0
+    i_out_conti_buf = 0
+    
+    for in_func_compl in xtaint_buffer_set_list:
+        i_in_conti_buf = -1
+        
+        for in_conti_buf in in_func_compl['buffer']:
+            i_in_conti_buf += 1
+            if len(in_conti_buf) <= 1:
+                continue
+            i_out_func_compl = i_in_func_compl + 1
+            for out_func_compl in xtaint_buffer_set_list[i_in_func_compl+1:]:
+                i_out_conti_buf = -1
+                
+                for out_conti_buf in out_func_compl['buffer']:
+                    i_out_conti_buf += 1
+                    if len(out_conti_buf) <= 1:
+                        continue
+                    srch_aval_src_dest_buf(in_conti_buf, out_conti_buf)
+                    print("fin searching avalanche:")
+                    print("\tindex of input function completion: ", i_in_func_compl)
+                    print("\tindex of continuous buffer in the function:", i_in_conti_buf)
+                    print("\tindex of output function completion: ", i_out_func_compl)
+                    print("\tindex of continuous buffer in the function:", i_out_conti_buf)
+                i_out_func_compl += 1
+            
+        i_in_func_compl += 1
+            
+    
 def main():
     preprocess()
-#     for record in xtaint_log_list:
-#         print(record)
-    create_buffer_set()
-    sort_buffer_set()
-    create_contin_buffer_set()
-    for member in xtaint_buffer_set_list:
-        for head in member['head']:
-            print(head)
-        for sub_list in member['buffer']:
-            for record in sub_list:
-                print(record)
+     for record in xtaint_log_list:
+         print(record)
+
+#    create_hash_xt_log()
+#    create_buffer_set()
+#    sort_buffer_set()
+#    create_contin_buffer_set()
+    
+#     is_path_exist(xtaint_log_list[222]['record']['src'], \
+#                   xtaint_log_list[222]['record']['dest'], True, 0)
+
+#     assert(\
+#            is_path_exist(xtaint_log_list[222]['record']['src'], \
+#                   xtaint_log_list[223]['record']['dest'], True, 0)
+#            ) == True
+           
+#     assert(\
+#            is_path_exist(xtaint_log_list[222]['record']['dest'], \
+#                   xtaint_log_list[222]['record']['src'], True, 0)
+#            ) == False
+            
+#     for member in xtaint_buffer_set_list:
+#         for head in member['head']:
+#             print(head)
+#         for sub_list in member['buffer']:
+#             for record in sub_list:
+#                 print(record)
+#    search_avalanche()
  
 if __name__ == '__main__':
     main()
