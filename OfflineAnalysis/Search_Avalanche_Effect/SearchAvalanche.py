@@ -5,30 +5,28 @@ be divided into 3 components:
     * Create Sets of Buffers - creates sets of buffers within the 
         same function call (matched CALL & RET instructions)
     * Search Avalanche Effect - searches avalanche effect based on
-        the sets of buffers'''
+        the sets of buffers
+TODO: explain more clearly'''
 
+import pdb
 import sys
 from operator import itemgetter
 
 _author_ = "mchen"
 
-# sys.stdout.flush()
-
 XTAINT_LOG_DIR  = "/home/mchen/Workspace-Linuxmint/XTaint/Result/"
 # XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block-heap_gv_sv_stack.txt"
-# XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block-heap_gv_sv_stack-nogdb.txt"
-XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block_8position.txt"
+XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block-heap_gv_sv_stack-nogdb.txt"
 
 CALL                    = "14"   # 14 is CALL instruction
 RET                     = "18"    # 18 is RET instruction
 
 XTAINT_LOG              = []
-hash_xtaint_log         = {}
-XTAINT_FUNC_LOG         = []
-XTAINT_FUNC_LOG_DICT    = []
+LOG_FUNC_LIVE           = []
+LOG_FUNC_LIVE_DICT      = []
 
-def preprocess():
-    """preprocess XTaint log.
+def process_log():
+    """process XTaint log.
     :param XTAINT_LOG_DIR + XTAINT_LOG_FILE: path of XTaint log
     :returns XTAINT_LOG: global list that contains all XTaint log records, 
         such as: [{}, {}, {},...].
@@ -61,7 +59,7 @@ def preprocess():
                     {'flag':words[0], 'addr':words[1], 'val':words[2]}
                 record['dest'] = \
                     {'flag':words[3], 'addr':words[4], 'val':words[5]}
-                record['is_in_set'] = "FALSE"
+                record['in_func'] = "FALSE"
                 XTAINT_LOG.append(record);
 
     xt_log_fp.close()
@@ -69,121 +67,137 @@ def preprocess():
 #         print(item)
 
 def create_func_log():
-    """extract records for each function call.
-    :param XTAINT_LOG: after call preprocess
-    :return XTAINT_FUNC_LOG: global and form as [[], [], [],...]
+    """extract records for each function call, based on the RET mark of
+    each function.
+    :param XTAINT_LOG: after call process_log
+    :return LOG_FUNC_LIVE: global and form as [[], [], [],...]
         each nested list contains records of the same function
-            XTAINT_FUNC_LOG: global and form as [{}, {},... ]
+            LOG_FUNC_LIVE_DICT: global and form as [{}, {},... ]
         each nested dict contains records of the same function
-    Algorithm:
+    Algorithm O(n^2):
         scan XTAINT_LOG, repeat until end:
             look for "RET" records, if found:
-                look for its matched "CALL" record, if found:
+                look for backwards its matched "CALL" rec, if found:
                     save all normal records between, as well as
                         the paired CALL and RET in the same sub-list
+                    mark those records 'in_func' field as TRUE
                 Otherwise, continue look for next "RET"
     """
-    local_xtaint_log = list(XTAINT_LOG)
+    addr_len = 7    # assume addr len
 
-    index = 0
-    for item in local_xtaint_log:
+    for idx, item in enumerate(XTAINT_LOG):
         if "RET" in item:
-            is_match_found = False
+            match_call_found = False
             
             # scan backwards to look for its matched CALL
-            prev_index = index - 1
-            while prev_index >= 0:
-                prev_item = local_xtaint_log[prev_index]
-                if "CALL" in prev_item and \
-                        prev_item['CALL']['level'] == item['RET']['level']:
-                    is_match_found = True
+            match_call_idx = idx - 1
+            while match_call_idx >= 0:
+                match_call = XTAINT_LOG[match_call_idx]
+                if "CALL" in match_call and \
+                        match_call['CALL']['level'] == item['RET']['level']:
+                    match_call_found = True
                     break
-                prev_index -= 1
+                match_call_idx -= 1
 
-            if is_match_found:
-                # if found, add records of same function to set
+            if match_call_found:
+                # if found, add records between to a sub list 
                 records_dict    = {}
-                records         = [prev_item, item]
+                records         = [match_call, item]
                 
-                for record in local_xtaint_log[prev_index:index]:
-                    if "RET" not in record and\
-                            "CALL" not in record and \
-                            record['is_in_set'] == "FALSE":
-                        record['is_in_set'] = "TRUE"
-                        # only save if src or dest is memory addr 
+                for rec in XTAINT_LOG[match_call_idx:idx]:
+                    if "RET" not in rec \
+                            and "CALL" not in rec \
+                            and rec['in_func'] == "FALSE":
+                        rec['in_func'] = "TRUE"
+                        s = rec['src']
+                        d = rec['dest']
+                        # only save if it is memory addr 
                         # or their vals are memory addr
-                        if len(record['src']['addr']) >= 7 or \
-                            len(record['src']['val']) >= 7:
-                            # assume input start with "bffff" or "804"
-                            if record['src']['addr'].startswith(('bffff',
-                                                                 '804')) \
-                                or record['src']['val'].startswith(('bffff', 
-                                                                    '804')): 
-                                records.append(record['src'])
+                        # TODO: how to distinct with addr with val?
+                        if len(s['addr']) >= addr_len \
+                                or len(s['val']) >= addr_len:
+                            # assume start with "bffff" or "804" (hacked filter)
+                            if s['addr'].startswith(('bffff', '804')) \
+                                    or s['val'].startswith(('bffff', '804')): 
+                                records.append(s)
                             
-                                # add output but with no such restriction
-                                rec_key = (
-                                           record['src']['flag'],
-                                           record['src']['addr'],
-                                           record['src']['val']
-                                           )
+                                rec_key = (s['flag'],
+                                           s['addr'],
+                                           s['val'])
                                 records_dict[rec_key] = "None"
                              
-                        if len(record['dest']['addr']) >= 7 or \
-                            len(record['dest']['val']) >= 7:
-                            # assume input start with "bffff" or "804"
-                            if record['dest']['addr'].startswith(('bffff',
-                                                                 '804')) \
-                                or record['dest']['val'].startswith(('bffff', 
-                                                                    '804')): 
-                                records.append(record['dest'])
-                                # add output but with no such restriction
-                                rec_key = (
-                                    record['dest']['flag'],
-                                    record['dest']['addr'],
-                                    record['dest']['val']
-                                    )
+                        if len(d['addr']) >= addr_len \
+                                or len(d['val']) >= addr_len:
+                            # assume start with "bffff" or "804"
+                            if d['addr'].startswith(('bffff', '804'))\
+                                    or d['val'].startswith(('bffff', '804')): 
+                                records.append(rec['dest'])
+                                
+                                rec_key = (d['flag'],
+                                           d['addr'],
+                                           d['val'])
                                 records_dict[rec_key] = "None"
-                XTAINT_FUNC_LOG.append(records)
-                XTAINT_FUNC_LOG_DICT.append(records_dict)
-        index += 1
-        
-    # add those unmatch records
-#     records = []
-#     for record in local_xtaint_log:
-#         if "RET" not in record and\
-#             "CALL" not in record and \
-#             record['is_in_set'] == "FALSE":
-#             record['is_in_set'] = "TRUE"
-#                                     
-#             records.append(record['src'])
-#             rec_key = (
-#                         record['src']['flag'],
-#                         record['src']['addr'],
-#                         record['src']['val']
-#                     )
-#             records_dict[rec_key] = "None"   
-#             
-#             records.append(record['dest'])
-#             rec_key = (
-#                         record['dest']['flag'],
-#                         record['dest']['addr'],
-#                         record['dest']['val']
-#                     )
-#             records_dict[rec_key] = "None"      
-#     XTAINT_FUNC_LOG.append(records)
-    
-#     for func in XTAINT_FUNC_LOG:
-#         for record in func:
-#             print(record)
-#     for dic in XTAINT_FUNC_LOG_DICT:
+                records = sort_func_records(records)
+                LOG_FUNC_LIVE.append(records)
+                LOG_FUNC_LIVE_DICT.append(records_dict)
+#     for func in LOG_FUNC_LIVE:
+#         for rec in func:
+#             print(rec)
+#     for dic in LOG_FUNC_LIVE_DICT:
 #         for key in dic:
 #             print(key, dic[key])
-#     del local_xtaint_log[:]
+
+def sort_func_records(func_recs):
+    """sort logs in the same function call.
+        1. convert record addr and val to numbers
+        2. sort either by addr or val
+        3. convert back to string and save in result list
+    :param func_recs: out of order logs in same function, forms as
+        [{'CALL':...}, {'RET':...}, {}, {}, ...]
+        Begin from 3rd dictionary, it is common record
+    :returns func_recs_sorted - a list contains sorted records either by addr
+    or val
+    """
+    func_recs_sorted = [func_recs[0], func_recs[1]]
+    func_recs_sorted_addr = []
+    func_recs_sorted_val = []
+    
+    add_len = 7
+    
+    if len(func_recs) > 3:          # only have more than 1 normal records
+        for rec in func_recs[2:]:   # first 2 records are function mark
+            if len(rec['addr']) >= add_len:
+                rec_int = (rec['flag'],
+                           int(rec['addr'], 16),
+                           rec['val'])
+                func_recs_sorted_addr.append(rec_int)
+                
+            if len(rec['val']) >= add_len:
+                rec_int = ()
+                rec_int = (rec['flag'],
+                           rec['addr'],
+                           int(rec['val'], 16))
+                func_recs_sorted_val.append(rec_int)
+
+        func_recs_sorted_addr = sorted(func_recs_sorted_addr, key=lambda x: x[1])
+        func_recs_sorted_val = sorted(func_recs_sorted_val, key=lambda x: x[2])
+    
+        for rec in func_recs_sorted_addr:
+            rec_str = {'flag':rec[0],
+                       'addr':hex(rec[1])[2:],
+                       'val':rec[2]}
+            func_recs_sorted.append(rec_str)
+        for rec in func_recs_sorted_val:
+            rec_str = {'flag':rec[0],
+                       'addr':rec[1],
+                       'val':hex(rec[2])[2:]}
+            func_recs_sorted.append(rec_str)
+
+    return func_recs_sorted
 
 def search_dest(snode):
 # def search_dest(snode, dnode):
-    """given a source node of any record, search all its propagate 
+    """given a source node of any record, search all its propagate_dests 
     destinations
     :param snode: source node of a record
     :returns: destination - a dict contains all destinations that can 
@@ -335,41 +349,41 @@ def filter_path(path_func):
             filter_path_func.append(cont_path_func_val)
     return filter_path_func
 
-# def propagate(node, idx):
-def propagate(node):
-    """Given a source node, forms as {'flag':<>, 'addr':<>, 'val':<>}, 
-    determines if it can propagate to any nodes of any function.
-    :param node: given source node
+# def propagate_dests(srouce):
+def propagate_dests(source, idx):
+    """Given a source source, forms as {'flag':<>, 'addr':<>, 'val':<>}, 
+    determines if it can propagate_dests to any nodes of any function.
+    :param source: given source source
     :param idx: ?
-    :returns a list that all nodes of any function that the given node 
-    can propagate to
+    :returns a list that all nodes of any function that the given source 
+    can propagate_dests to
     """
     path_funcs  = []
-    dest_map    = search_dest(node)
+    dest_map    = search_dest(source)
     
-#     for func_log_dict in XTAINT_FUNC_LOG_DICT[idx + 1:]:
-#         path_func = [nd for nd in dest_map if nd in func_log_dict]
-#         path_func = filter_path(path_func)
-# 
-#         if path_func:  
-#             path_func_dict = {'fi':idx, 'paths': path_func}
-#             path_funcs.append(path_func_dict)
-#         
-#         idx += 1
-                    
-    for idx, func_log_dict in enumerate(XTAINT_FUNC_LOG_DICT):
-        # TODO: bug here, even no intersection, last nd still in
+    for func_log_dict in LOG_FUNC_LIVE_DICT[idx + 1:]:
         path_func = [nd for nd in dest_map if nd in func_log_dict]
         path_func = filter_path(path_func)
-  
+ 
         if path_func:  
             path_func_dict = {'fi':idx, 'paths': path_func}
             path_funcs.append(path_func_dict)
+         
+        idx += 1
+                    
+#     for idx, func_log_dict in enumerate(LOG_FUNC_LIVE_DICT):
+#         # TODO: bug here, even no intersection, last nd still in
+#         path_func = [nd for nd in dest_map if nd in func_log_dict]
+#         path_func = filter_path(path_func)
+#   
+#         if path_func:  
+#             path_func_dict = {'fi':idx, 'paths': path_func}
+#             path_funcs.append(path_func_dict)
 
-#     for idx, func_log_dict in enumerate(XTAINT_FUNC_LOG_DICT):
+#     for idx, func_log_dict in enumerate(LOG_FUNC_LIVE_DICT):
 #         path_func = []
 #         for nd in func_log_dict:
-#             if search_dest(node, nd):
+#             if search_dest(source, nd):
 #                 path_func.append(nd)
 #         
 #         path_func = filter_path(path_func)
@@ -379,271 +393,11 @@ def propagate(node):
 #             path_funcs.append(path_func_dict)
             
     return path_funcs
-        
-def create_hash_xt_log():
-    """create hash table (dictionary) of XTAINT_LOG for better
-    performance
-    @precondition: XTAINT_LOG has to be created by preprocess
-        before calling this function
-    @param global: XTAINT_LOG
-    @return: global: hash_xtaint_log"""
-    for elem in XTAINT_LOG:
-        if "record" in elem:
-#             toint = int(elem['record']['src']['addr'],16)
-            src = elem['record']['src']['flag'] + "-" + elem['record']['src']['addr']
-#             src = elem['record']['src']['flag'] + "-" + toint
-#             print(src)
-            hash_xtaint_log[src] = []
-    
-    i = 0 
-    for elem in XTAINT_LOG:
-        if "record" in elem:
-#             toint = int(elem['record']['src']['addr'],16)
-            src = elem['record']['src']['flag'] + "-" + elem['record']['src']['addr']
-#             src = elem['record']['src']['flag'] + "-" + toint
-            dest = {'dest':elem['record']['dest'], 'time':i}
-            hash_xtaint_log[src].append(dest)
-            i += 1
-    
-#     for key in hash_xtaint_log:
-#         for dest in hash_xtaint_log[key]:
-#             print(dest)
-
-
-
-def sort_buffer_set():    
-    """for all memory buffers in the same function call, sort them via 'addr'
-    Args:
-        global - XTAINT_FUNC_LOG
-    Return:
-        save results in XTAINT_FUNC_LOG
-    
-    (Needs to be called after create_func_log)
-    At this time the XTAINT_FUNC_LOG forms as:
-        [{'head':[{'CALL':{} }, {'RET':{} } ], 'buffer':[{}, {}, ...] }, {}, ...]
-    each member of the list is a dictionary, with key head and buffer; the 
-    value of buffer is a list, which contains all the 
-        {'flag':<>, 'addr':<>, 'val':<> }
-    in it, needs to sort items in the buffer via the 'addr' value
-    """
-    for item in XTAINT_FUNC_LOG:
-        item['buffer'] = sorted(item['buffer'], key=itemgetter('addr') )
-#         for mem_cell in item['buffer']:
-#             print(mem_cell)
-
-def create_contin_buffer_set():
-    """create continous buffer sets of buffers in same function call
-    Args:
-        global - XTAINT_FUNC_LOG
-    Return:
-        save results in XTAINT_FUNC_LOG
-        
-    for {} of each function call, the value of key 'buffer' is sorted list
-    that contains all records (i.e., {'flag':<>, 'addr':<>, 'val':<> })
-    of the function call
-    
-    it needs to break the 'buffer' list into several sub-lists, such that,
-    for 'addr' of each record, if their interval smaller than a default
-    value, they belong to the same continous buffer set
-    """
-    default_interval = 4
-    for item in XTAINT_FUNC_LOG:
-        buf_sets = []
-        contin_buf_set = []
-        record_index = 0
-        for record in item['buffer']:
-            if record_index == 0:
-                contin_buf_set.append(record)
-            else:
-                interval = record['addr'] - contin_buf_set[-1]['addr']
-                 
-                if interval > 0 and interval <= default_interval:
-                    """continous buffer (get rid of duplicate buffer)"""
-                    contin_buf_set.append(record)
-                elif interval > default_interval:
-                    buf_sets.append(contin_buf_set)
-                    contin_buf_set = []
-                    contin_buf_set.append(record)
-                      
-            record_index += 1
-        
-        """add last contin_buf_set"""    
-        buf_sets.append(contin_buf_set)
-        item['buffer'] = buf_sets
-    del buf_sets[:]
-    del contin_buf_set[:]
-
-def del_val(xtaint_node):
-    """ delete val key component of xtaint_node
-    a xtaint_node is a dictionary, forms as:
-        {'flag':<>, 'addr':<>, 'val':<>}
-        
-    Args:
-        a xtaint_node dictonary
-    Return:
-        a xtaint_node dictionary without key 'val'
-            {'flag':<>, 'addr':<>}
-    """
-    new_xtaint_node = {'flag':xtaint_node['flag'], 'addr':xtaint_node['addr']}
-    return  new_xtaint_node
-    
-
-def is_path_exist(src, dest, usehash, time):
-    """ determine if a path between the given src and dest
-    Args:
-        src: {'flag':<>, 'addr':<>, 'val':<>}
-        dest: {'flag':<>, 'addr':<>, 'val':<>}
-    Return:
-        return true if such a path exists; otherwise return false
-    """
-    if usehash:
-#         set_src = [src] # set of dests that src can reach, init with src
-#         tohex = hex(src['addr'])[2:]
-        key = src['flag'] + "-" + src['addr']
-#         key = src['flag'] + "-" + tohex
-        if key not in hash_xtaint_log:
-            return False
-        
-        dest_list = hash_xtaint_log[key]
-        
-        min_time = sys.maxsize
-        for elem in dest_list:
-            if min_time > elem['time']:
-                min_time = elem['time']
-        if time > min_time:
-            return False
-        
-        for elem in dest_list:    
-            if time <= elem['time']:
-                if dest['flag'] == elem['dest']['flag']\
-                        and dest['addr'] == elem['dest']['addr']:
-                    return True
-                else:
-                    time = elem['time']
-                    new_src = elem['dest']
-                    return is_path_exist(new_src, dest, True, time)
-            
-    else:
-        new_src = del_val(src)
-        new_dest = del_val(dest) 
-        set_src = [new_src] # set of dests that src can reach, init with src
-
-        for item in XTAINT_LOG:
-            if "record" in item:
-                src_of_record = del_val(item['record']['src'])
-                dest_of_record = del_val(item['record']['dest'])
-                if src_of_record in set_src \
-                        and dest_of_record not in set_src:
-                    set_src.append(dest_of_record)
-    
-        if new_dest in set_src: return True
-        else: return False
-
-def srch_aval_src_dest_buf(src_buf, dest_buf):
-    """search avalanche effect given two continuous buffers
-    Args:
-        src_buf: source continuous buffer
-        dest_buf: destination continuous buffer
-        
-        both are lists, form as:
-            [
-                1st mem cell: {'flag'<>, 'addr':<>, 'val':<>}
-                2nd mem cell: {'flag'<>, 'addr':<>, 'val':<>}
-                3rd mem cell: {'flag'<>, 'addr':<>, 'val':<>}
-                ...
-            ]
-    Return:
-        a list of aval_pair input & output buffers if there exists avalanche
-        effect between them
-        [
-            (1st aval_pair input & output buffers):
-            {
-                'in_buf':
-                [
-                    {'flag'<>, 'addr':<>, 'val':<>}
-                    ...
-                ]
-                
-                'out_buf':
-                [
-                    {'flag'<>, 'addr':<>, 'val':<>}
-                    ...
-                ]
-            }
-            (2nd aval_pair input & output buffers):
-            {
-                'in_buf':
-                [
-                    {'flag'<>, 'addr':<>, 'val':<>}
-                    ...
-                ]
-                
-                'out_buf':
-                [
-                    {'flag'<>, 'addr':<>, 'val':<>}
-                    ...
-                ]
-            }
-            ...
-        ]
-    
-    """
-    aval_src_destbufs_sets  =   []
-    aval_in_out_bufs        =   {}
-    aval_in_out_bufs_sets   =   []
-    
-    for nd_src in src_buf:
-        aval_src_destbufs = {}
-        aval_src_destbufs['src_node'] = nd_src
-        aval_src_destbufs['dest_bufs'] = []
-        
-        nd_src_tostr = {'flag':nd_src['flag'],\
-                        'addr':hex(nd_src['addr'])[2:],\
-                        'val':nd_src['val']}
-        for nd_dest in dest_buf:
-#             if is_path_exist(nd_src, nd_dest):
-            nd_dest_tostr = {'flag':nd_dest['flag'],\
-                        'addr':hex(nd_dest['addr'])[2:],\
-                        'val':nd_dest['val']}
-            if is_path_exist(nd_src_tostr, nd_dest_tostr, True, 0):               
-                aval_src_destbufs['dest_bufs'].append(nd_dest)
-        if len(aval_src_destbufs['dest_bufs']) > 0:
-            aval_src_destbufs_sets.append(aval_src_destbufs)
-            
-    for entr in aval_in_out_bufs_sets:
-        print("entry source node is:")
-        print(entr['src_node'])
-        print("dest buf is:")
-        for elem in entr['dest_bufs']:
-            print(elem)
-    
-#     counter_continu_dest_buf = 0
-# 
-#     aval_pair_sets = []
-#     aval_pair = {}
-#     
-#     src_node_i = 0
-#     for src_node in src_buf:
-#         if src_node_i == 0:
-#             aval_pair['in_buf'] = [src_node]
-#         else:
-#             counter_continu_dest_buf = 0
-#             for dest_node in dest_buf:
-#                 is_path =  is_path_exist(src_node, dest_node)
-#                 if not is_path:
-#                     break
-#                 
-#                 counter_continu_dest_buf += 1
-#             
-#         src_node_i += 1
-#         
-#     
-#     return aval_pair_sets
 
 def search_avalanche():
     """search avalanche effect between continuous buffer set
     Args:
-        global - XTAINT_FUNC_LOG, which contains continuous buffer
+        global - LOG_FUNC_LIVE, which contains continuous buffer
         sets of each function call (ordered by completion time), form as:
         [
             (1st complete function call):
@@ -775,81 +529,26 @@ def search_avalanche():
             for each continuous buffer set, search it between EVERY 
             continuous buffer set after its func call
     """
-#     i_in_func_compl = 0
-#     i_out_func_compl = 0
-#     
-#     i_in_conti_buf = 0
-#     i_out_conti_buf = 0
-#     
-#     for in_func_compl in XTAINT_FUNC_LOG:
-#         i_in_conti_buf = -1
-#         
-#         for in_conti_buf in in_func_compl['buffer']:
-#             i_in_conti_buf += 1
-#             if len(in_conti_buf) <= 1:
-#                 continue
-#             i_out_func_compl = i_in_func_compl + 1
-#             for out_func_compl in XTAINT_FUNC_LOG[i_in_func_compl+1:]:
-#                 i_out_conti_buf = -1
-#                 
-#                 for out_conti_buf in out_func_compl['buffer']:
-#                     i_out_conti_buf += 1
-#                     if len(out_conti_buf) <= 1:
-#                         continue
-#                     srch_aval_src_dest_buf(in_conti_buf, out_conti_buf)
-#                     print("fin searching avalanche:")
-#                     print("\tindex of input function completion: ", i_in_func_compl)
-#                     print("\tindex of continuous buffer in the function:", i_in_conti_buf)
-#                     print("\tindex of output function completion: ", i_out_func_compl)
-#                     print("\tindex of continuous buffer in the function:", i_out_conti_buf)
-#                 i_out_func_compl += 1
-#             
-#         i_in_func_compl += 1
-
-    for idx, func_log in enumerate(XTAINT_FUNC_LOG):
+    for idx, func_log in enumerate(LOG_FUNC_LIVE):
         print("function index: ", idx)
         for node in func_log[2:]:
             if node:
-                node_path_funcs = propagate(node)   
+                node_path_funcs = propagate_dests(node, idx)   
                 if node_path_funcs:
                     print("node: ", node)
                     for path_func_dict in node_path_funcs:
                         print(path_func_dict)         
     
 #     node = {'flag': '2', 'addr': '3', 'val': '804a048'}
-#     node_path_funcs = propagate(node)   
+#     node_path_funcs = propagate_dests(node)   
 #     if node_path_funcs:
 #         print("node: ", node)
 #         for path_func_dict in node_path_funcs:
 #             print(path_func_dict)   
     
 def main():
-    preprocess()
-#     create_hash_xt_log()
+    process_log()
     create_func_log()
-#     sort_buffer_set()
-#     create_contin_buffer_set()
-    
-#     is_path_exist(XTAINT_LOG[222]['record']['src'], \
-#                   XTAINT_LOG[222]['record']['dest'], True, 0)
-
-#     assert(\
-#            is_path_exist(XTAINT_LOG[222]['record']['src'], \
-#                   XTAINT_LOG[223]['record']['dest'], True, 0)
-#            ) == True
-           
-#     assert(\
-#            is_path_exist(XTAINT_LOG[222]['record']['dest'], \
-#                   XTAINT_LOG[222]['record']['src'], True, 0)
-#            ) == False
-            
-#     for member in XTAINT_FUNC_LOG:
-#         for head in member['head']:
-#             print(head)
-#         for sub_list in member['buffer']:
-#             for record in sub_list:
-#                 print(record)
-
     search_avalanche()
  
 if __name__ == '__main__':
