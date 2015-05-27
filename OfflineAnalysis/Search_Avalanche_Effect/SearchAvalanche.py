@@ -16,7 +16,8 @@ _author_ = "mchen"
 
 XTAINT_LOG_DIR  = "/home/mchen/Workspace-Linuxmint/XTaint/Result/"
 # XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block-heap_gv_sv_stack.txt"
-XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block-heap_gv_sv_stack-nogdb.txt"
+# XTAINT_LOG_FILE = "result-DES-CBC-Aval-1Block-heap_gv_sv_stack-nogdb.txt"
+XTAINT_LOG_FILE = "result-DES-CBC-stack-taint_key-nogdb.txt"
 
 CALL                    = "14"   # 14 is CALL instruction
 RET                     = "18"    # 18 is RET instruction
@@ -140,12 +141,114 @@ def create_func_log():
                 records = sort_func_records(records)
                 LOG_FUNC_LIVE.append(records)
                 LOG_FUNC_LIVE_DICT.append(records_dict)
+    for func in LOG_FUNC_LIVE:
+        for rec in func:
+            print(rec)
+#     for dic in LOG_FUNC_LIVE_DICT:
+#         for key in dic:
+#             print(key, dic[key])
+
+def create_func_log_ret():
+    addr_len = 7    # assume addr len
+    log_stack = []  # 
+    for item in XTAINT_LOG:
+        if "RET" in item:
+            records_dict    = {}
+            records         = [item]
+            while len(log_stack) > 0:
+                rec = log_stack.pop()
+                if "CALL" in rec and \
+                        rec['CALL']['level'] == item['RET']['level']:
+                    break
+                else:
+                    s = rec['src']
+                    d = rec['dest']
+                    # only save if it is memory addr 
+                    # or their vals are memory addr
+                    # TODO: how to distinct with addr with val?
+                    if len(s['addr']) >= addr_len \
+                            or len(s['val']) >= addr_len:
+                        # assume start with "bffff" or "804" (hacked filter)
+                        if s['addr'].startswith(('bffff', '804')) \
+                                or s['val'].startswith(('bffff', '804')): 
+                            records.append(s)
+                            
+                            rec_key = (s['flag'],
+                                       s['addr'],
+                                       s['val'])
+                            records_dict[rec_key] = "None"
+                             
+                    if len(d['addr']) >= addr_len \
+                            or len(d['val']) >= addr_len:
+                        # assume start with "bffff" or "804"
+                        if d['addr'].startswith(('bffff', '804'))\
+                                or d['val'].startswith(('bffff', '804')): 
+                            records.append(rec['dest'])
+                                
+                            rec_key = (d['flag'],
+                                       d['addr'],
+                                       d['val'])
+                            records_dict[rec_key] = "None"
+            if len(records) > 1:
+                records = sort_func_recs_ret(records)
+                LOG_FUNC_LIVE.append(records)
+                LOG_FUNC_LIVE_DICT.append(records_dict)
+        else:
+            log_stack.append(item)
 #     for func in LOG_FUNC_LIVE:
 #         for rec in func:
 #             print(rec)
 #     for dic in LOG_FUNC_LIVE_DICT:
 #         for key in dic:
 #             print(key, dic[key])
+
+def sort_func_recs_ret(func_recs):
+    """sort logs in the same function call.
+        1. convert record addr and val to numbers
+        2. sort either by addr or val
+        3. convert back to string and save in result list
+    :param func_recs: out of order logs in same function, forms as
+        [{'CALL':...}, {'RET':...}, {}, {}, ...]
+        Begin from 3rd dictionary, it is common record
+    :returns func_recs_sorted - a list contains sorted records either by addr
+    or val
+    """
+    func_recs_sorted = [func_recs[0]]
+    func_recs_sorted_addr = []
+    func_recs_sorted_val = []
+    
+    add_len = 7
+    
+    if len(func_recs) > 2:          # only have more than 1 normal records
+        for rec in func_recs[1:]:   # first 1 records are function mark
+            if len(rec['addr']) >= add_len:
+                rec_int = (rec['flag'],
+                           int(rec['addr'], 16),
+                           rec['val'])
+                func_recs_sorted_addr.append(rec_int)
+                
+            if len(rec['val']) >= add_len:
+                rec_int = ()
+                rec_int = (rec['flag'],
+                           rec['addr'],
+                           int(rec['val'], 16))
+                func_recs_sorted_val.append(rec_int)
+
+        func_recs_sorted_addr = sorted(func_recs_sorted_addr, key=lambda x: x[1])
+        func_recs_sorted_val = sorted(func_recs_sorted_val, key=lambda x: x[2])
+    
+        for rec in func_recs_sorted_addr:
+            rec_str = {'flag':rec[0],
+                       'addr':hex(rec[1])[2:],
+                       'val':rec[2]}
+            func_recs_sorted.append(rec_str)
+        for rec in func_recs_sorted_val:
+            rec_str = {'flag':rec[0],
+                       'addr':rec[1],
+                       'val':hex(rec[2])[2:]}
+            func_recs_sorted.append(rec_str)
+
+    return func_recs_sorted
 
 def sort_func_records(func_recs):
     """sort logs in the same function call.
@@ -531,7 +634,7 @@ def search_avalanche():
     """
     for idx, func_log in enumerate(LOG_FUNC_LIVE):
         print("function index: ", idx)
-        for node in func_log[2:]:
+        for node in func_log[1:]:
             if node:
                 node_path_funcs = propagate_dests(node, idx)   
                 if node_path_funcs:
@@ -548,7 +651,8 @@ def search_avalanche():
     
 def main():
     process_log()
-    create_func_log()
+    create_func_log_ret()
+#    create_func_log()
     search_avalanche()
  
 if __name__ == '__main__':
