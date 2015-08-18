@@ -2377,7 +2377,7 @@ inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
  * args[0]: mark
  * args[1]: addr if it is call insn
  */
-static inline void tcg_out_XTAINT_func_mark(TCGContext *s, const TCGArg *args){
+static inline void tcg_out_XTAINT_mark(TCGContext *s, const TCGArg *args){
 //	switch(args[0]){
 //		case X_CALL_MARK:
 //		case X_SIZE_BEGIN:

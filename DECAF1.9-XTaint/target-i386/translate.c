@@ -238,12 +238,11 @@ static inline void tcg_gen_call_cb_0(void *func)
 
 #ifdef CONFIG_TCG_XTAINT
 /**
- * func_mark
- * mark of function (call & ret) instruction x86
+ * mark of info, like function (call & ret) or size info
  */
-static inline void gen_op_XTAINT_func_mark(uint32_t flag, target_ulong func_addr)
+static inline void gen_op_XTAINT_mark(uint32_t flag, target_ulong func_addr)
 {
-	tcg_gen_XTAINT_func_mark(flag, func_addr);
+	tcg_gen_XTAINT_mark(flag, func_addr);
 }
 #endif // CONFIG_TCG_XTAINT
 
@@ -4794,7 +4793,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             /* XXX: optimize if memory (no 'and' is necessary) */
 #ifdef CONFIG_TCG_XTAINT
             if(xtaint_save_temp_enabled)
-            	gen_op_XTAINT_func_mark(X_CALL_MARK, 0);
+            	gen_op_XTAINT_mark(X_CALL_MARK, 0);
 #endif /* CONFIG_TCG_XTAINT */
             if (s->dflag == 0)
                 gen_op_andl_T0_ffff();
@@ -4807,7 +4806,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         case 3: /* lcall Ev */
 #ifdef CONFIG_TCG_XTAINT
             if(xtaint_save_temp_enabled)
-            	gen_op_XTAINT_func_mark(X_CALL_MARK, 0);
+            	gen_op_XTAINT_mark(X_CALL_MARK, 0);
 #endif /* CONFIG_TCG_XTAINT */
             gen_op_ld_T1_A0(ot + s->mem_index);
             gen_add_A0_im(s, 1 << (ot - OT_WORD + 1));
@@ -5454,14 +5453,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     case 0xb0 ... 0xb7: /* mov R, Ib */
 #ifdef CONFIG_TCG_XTAINT
         if(xtaint_save_temp_enabled)
-            gen_op_XTAINT_func_mark(X_SIZE_BEGIN, 8);
+            gen_op_XTAINT_mark(X_SIZE_BEGIN, 8);
 #endif /* CONFIG_TCG_XTAINT */
         val = insn_get(s, OT_BYTE);
         gen_op_movl_T0_im(val);
         gen_op_mov_reg_T0(OT_BYTE, (b & 7) | REX_B(s));
 #ifdef CONFIG_TCG_XTAINT
         if(xtaint_save_temp_enabled)
-            gen_op_XTAINT_func_mark(X_SIZE_END, 8);
+            gen_op_XTAINT_mark(X_SIZE_END, 8);
 #endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xb8 ... 0xbf: /* mov R, Iv */
@@ -5480,7 +5479,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = dflag ? OT_LONG : OT_WORD;
 #ifdef CONFIG_TCG_XTAINT
             if(xtaint_save_temp_enabled && ot == OT_WORD)
-            	gen_op_XTAINT_func_mark(X_SIZE_BEGIN, 16);
+            	gen_op_XTAINT_mark(X_SIZE_BEGIN, 16);
 #endif /* CONFIG_TCG_XTAINT */
             val = insn_get(s, ot);
             reg = (b & 7) | REX_B(s);
@@ -5488,7 +5487,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_op_mov_reg_T0(ot, reg);
 #ifdef CONFIG_TCG_XTAINT
             if(xtaint_save_temp_enabled && ot == OT_WORD)
-            	gen_op_XTAINT_func_mark(X_SIZE_END, 16);
+            	gen_op_XTAINT_mark(X_SIZE_END, 16);
 #endif /* CONFIG_TCG_XTAINT */
         }
         break;
@@ -6381,7 +6380,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     case 0xc2: /* ret im */
 #ifdef CONFIG_TCG_XTAINT
     	if(xtaint_save_temp_enabled)
-    		gen_op_XTAINT_func_mark(X_RET_MARK, 0);
+    		gen_op_XTAINT_mark(X_RET_MARK, 0);
 #endif /* CONFIG_TCG_XTAINT */
         val = ldsw_code(s->pc);
         s->pc += 2;
@@ -6398,7 +6397,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     case 0xc3: /* ret */
 #ifdef CONFIG_TCG_XTAINT
     	if(xtaint_save_temp_enabled)
-    		gen_op_XTAINT_func_mark(X_RET_MARK, 0);
+    		gen_op_XTAINT_mark(X_RET_MARK, 0);
 #endif /* CONFIG_TCG_XTAINT */
         gen_pop_T0(s);
         gen_pop_update(s);
@@ -6411,7 +6410,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     case 0xca: /* lret im */
 #ifdef CONFIG_TCG_XTAINT
     	if(xtaint_save_temp_enabled)
-    		gen_op_XTAINT_func_mark(X_RET_MARK, 0);
+    		gen_op_XTAINT_mark(X_RET_MARK, 0);
 #endif /* CONFIG_TCG_XTAINT */
         val = ldsw_code(s->pc);
         s->pc += 2;
@@ -6443,7 +6442,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     case 0xcb: /* lret */
 #ifdef CONFIG_TCG_XTAINT
     	if(xtaint_save_temp_enabled)
-    		gen_op_XTAINT_func_mark(X_RET_MARK, 0);
+    		gen_op_XTAINT_mark(X_RET_MARK, 0);
 #endif /* CONFIG_TCG_XTAINT */
         val = 0;
         goto do_lret;
@@ -6484,7 +6483,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 tval &= 0xffffffff;
 #ifdef CONFIG_TCG_XTAINT
             if(xtaint_save_temp_enabled)
-            	gen_op_XTAINT_func_mark(X_CALL_MARK, tval);
+            	gen_op_XTAINT_mark(X_CALL_MARK, tval);
 #endif /* CONFIG_TCG_XTAINT */
             gen_movtl_T0_im(next_eip);
             gen_push_T0(s);
@@ -6503,7 +6502,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
 #ifdef CONFIG_TCG_XTAINT
             if(xtaint_save_temp_enabled)
-            	gen_op_XTAINT_func_mark(X_CALL_MARK, 0);
+            	gen_op_XTAINT_mark(X_CALL_MARK, 0);
 #endif /* CONFIG_TCG_XTAINT */
             gen_op_movl_T0_im(selector);
             gen_op_movl_T1_imu(offset);

@@ -2217,8 +2217,8 @@ static inline int tcg_gen_code_common(TCGContext *s, uint8_t *gen_code_buf,
 				tcg_out_XTAINT_save_temp(s, args);
 		}
 			break;
-		case INDEX_op_XTAINT_func_mark:
-			tcg_out_XTAINT_func_mark(s, args);
+		case INDEX_op_XTAINT_mark:
+			tcg_out_XTAINT_mark(s, args);
 			break;
 		case INDEX_op_XTAINT_set_label:
 			tcg_out_label(s, args[0], (long)s->code_ptr);
