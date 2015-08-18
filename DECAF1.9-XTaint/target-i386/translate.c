@@ -5452,9 +5452,17 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_op_mov_reg_T0(OT_BYTE, R_EAX);
         break;
     case 0xb0 ... 0xb7: /* mov R, Ib */
+#ifdef CONFIG_TCG_XTAINT
+        if(xtaint_save_temp_enabled)
+            gen_op_XTAINT_func_mark(X_SIZE_BEGIN, 8);
+#endif /* CONFIG_TCG_XTAINT */
         val = insn_get(s, OT_BYTE);
         gen_op_movl_T0_im(val);
         gen_op_mov_reg_T0(OT_BYTE, (b & 7) | REX_B(s));
+#ifdef CONFIG_TCG_XTAINT
+        if(xtaint_save_temp_enabled)
+            gen_op_XTAINT_func_mark(X_SIZE_END, 8);
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xb8 ... 0xbf: /* mov R, Iv */
 #ifdef TARGET_X86_64
@@ -5470,13 +5478,20 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 #endif
         {
             ot = dflag ? OT_LONG : OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled && ot == OT_WORD)
+            	gen_op_XTAINT_func_mark(X_SIZE_BEGIN, 16);
+#endif /* CONFIG_TCG_XTAINT */
             val = insn_get(s, ot);
             reg = (b & 7) | REX_B(s);
             gen_op_movl_T0_im(val);
             gen_op_mov_reg_T0(ot, reg);
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled && ot == OT_WORD)
+            	gen_op_XTAINT_func_mark(X_SIZE_END, 16);
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
-
     case 0x91 ... 0x97: /* xchg R, EAX */
     do_xchg_reg_eax:
         ot = dflag + OT_WORD;

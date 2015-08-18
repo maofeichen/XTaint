@@ -743,7 +743,9 @@ void XTAINT_log_func_mark(){
 	*xtaint_ptr_cur_rcrd++ = *flag;
 
 	// log second value: if call, then func addr; otherwise 0
-	if(*flag == X_CALL_MARK){
+	if(*flag == X_CALL_MARK ||\
+		*flag == X_SIZE_BEGIN ||\
+		*flag == X_SIZE_END){
 		func_addr = (uint32_t *) (ebp + offset_ebp + sz);
 		*(uint32_t *) xtaint_ptr_cur_rcrd = *func_addr;		// log func addr
 	} else if(*flag == X_RET_MARK){

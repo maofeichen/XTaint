@@ -24,6 +24,8 @@
 #define X_RET_MARK 0x18
 /* handle specially for memory store with pointer as taint source */
 #define X_ST_POINTER 0x1c
+#define X_SIZE_BEGIN 0x20
+#define X_SIZE_END 0x24
 #define X_DEBUG 0x80
 
 extern int xtaint_save_temp_enabled;
