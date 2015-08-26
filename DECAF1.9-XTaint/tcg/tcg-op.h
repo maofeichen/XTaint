@@ -2192,9 +2192,10 @@ static inline void tcg_gen_XTAINT_save_temp(TCGv src_shdw,
 {
 	tcg_gen_op4_i32(INDEX_op_XTAINT_save_temp, src_shdw, src, dest, flag);
 }
-static inline void tcg_gen_XTAINT_mark(tcg_target_long flag, tcg_target_long func_addr)
+static inline void tcg_gen_XTAINT_mark(tcg_target_long flag, tcg_target_long val1, \
+										tcg_target_long val2)
 {
-	tcg_gen_op2i_i32(INDEX_op_XTAINT_mark, flag, func_addr);
+	tcg_gen_op3i_i32(INDEX_op_XTAINT_mark, flag, val1, val2);
 }
 static inline void tcg_gen_XTAINT_ret_mark(tcg_target_long flag, TCGv cur_esp){
 	tcg_gen_op2_i32(INDEX_op_XTAINT_ret_mark, flag, cur_esp);

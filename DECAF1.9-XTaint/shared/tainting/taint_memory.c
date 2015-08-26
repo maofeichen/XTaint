@@ -732,36 +732,28 @@ void XTAINT_log_temp() {
  */
 void XTAINT_log_func_mark(){
 	register int ebp asm("ebp");
-	uint8_t offset_ebp = 0x14;	// first value addr relative to ebp
+	uint8_t offset_ebp = 0x18;	// first value addr relative to ebp
 	uint8_t sz = 0x4;			// size of next value
 
-	uint32_t *func_addr;
+	uint32_t *val1, *val2;
 	uint8_t *flag;
 
 	// log first value: flag
 	flag = (uint8_t *) (ebp + offset_ebp);
 	*xtaint_ptr_cur_rcrd++ = *flag;
 
-	// log second value: if call, then func addr; otherwise 0
-	if(*flag == X_CALL_MARK ||\
-		*flag == X_RET_MARK ||\
-		*flag == X_SIZE_BEGIN ||\
-		*flag == X_SIZE_END){
-		func_addr = (uint32_t *) (ebp + offset_ebp + sz);
-		*(uint32_t *) xtaint_ptr_cur_rcrd = *func_addr;		// log func addr
-	}
-//	else if(*flag == X_RET_MARK){
-//		*(uint32_t *) xtaint_ptr_cur_rcrd = 0;		// log 0 instead
-//	}
-	else{
-		fprintf(stderr, "unkonw function mark, abort\n");
-		exit(1);
-	}
+	val1 = (uint32_t *) (ebp + offset_ebp + sz);
+	*(uint32_t *) xtaint_ptr_cur_rcrd = *val1;		// log func addr...
 	xtaint_ptr_cur_rcrd += sz;
 
 	// log 3rd value
 	// the format of record is <flag, addr, val>, but no value here, use 0
-	*(uint32_t *) xtaint_ptr_cur_rcrd = 0;
+	if(*flag == X_RET_MARK){
+		val2 = (uint32_t *) (ebp + offset_ebp + 2 * sz);
+		*(uint32_t *) xtaint_ptr_cur_rcrd = *val2;
+	} else{
+		*(uint32_t *) xtaint_ptr_cur_rcrd = 0;
+	}
 	xtaint_ptr_cur_rcrd += sz;
 
 	xtaint_cur_pool_sz -= 9;			// update the pool avaiable size
