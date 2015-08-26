@@ -57,6 +57,7 @@ DEF(XTAINT_save_temp, 0, 3, 1, 0)
 DEF(XTAINT_set_label, 0, 0, 1, 0)
 DEF(XTAINT_brcond_i32, 0, 2, 2, 0)
 //DEF(XTAINT_setcond_i32, 1, 2, 1, 0)
+DEF(XTAINT_ret_mark, 0, 1, 1, 0)
 DEF(XTAINT_mark, 0, 0, 2, 0)	// mark: flag, func addr as para
 #endif /*CONFIG_TCG_XTAINT */
 

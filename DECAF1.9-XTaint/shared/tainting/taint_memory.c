@@ -744,13 +744,16 @@ void XTAINT_log_func_mark(){
 
 	// log second value: if call, then func addr; otherwise 0
 	if(*flag == X_CALL_MARK ||\
+		*flag == X_RET_MARK ||\
 		*flag == X_SIZE_BEGIN ||\
 		*flag == X_SIZE_END){
 		func_addr = (uint32_t *) (ebp + offset_ebp + sz);
 		*(uint32_t *) xtaint_ptr_cur_rcrd = *func_addr;		// log func addr
-	} else if(*flag == X_RET_MARK){
-		*(uint32_t *) xtaint_ptr_cur_rcrd = 0;		// log 0 instead
-	} else{
+	}
+//	else if(*flag == X_RET_MARK){
+//		*(uint32_t *) xtaint_ptr_cur_rcrd = 0;		// log 0 instead
+//	}
+	else{
 		fprintf(stderr, "unkonw function mark, abort\n");
 		exit(1);
 	}
@@ -768,6 +771,38 @@ void XTAINT_log_func_mark(){
 		xtaint_ptr_cur_rcrd = xtaint_pool;
 		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
 	}
+}
+
+void XTAINT_log_ret_mark(){
+	register int ebp asm("ebp");
+	uint8_t offset_ebp = 0x18;	// first value addr relative to ebp
+	uint8_t sz = 0x4;			// size of next value
+
+	uint32_t *cur_esp;
+	uint8_t *flag;
+
+	// log first value: flag
+	flag = (uint8_t *) (ebp + offset_ebp);
+	*xtaint_ptr_cur_rcrd++ = *flag;
+
+	// log second value: esp
+	cur_esp = (uint32_t *) (ebp + offset_ebp + sz);
+	*(uint32_t *) xtaint_ptr_cur_rcrd = *cur_esp;
+	xtaint_ptr_cur_rcrd += sz;
+
+	// log 3rd value
+	// the format of record is <flag, addr, val>, but no value here, use 0
+	*(uint32_t *) xtaint_ptr_cur_rcrd = 0;
+	xtaint_ptr_cur_rcrd += sz;
+
+	xtaint_cur_pool_sz -= 9;			// update the pool avaiable size
+	if (xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+		// printf("threshold hit\n");
+		xtaint_flush_to_file(xtaint_fp);
+		xtaint_ptr_cur_rcrd = xtaint_pool;
+		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+	}
+
 }
 
 int xtaint_do_save_temp(Monitor *mon, const QDict *qdict, QObject **ret_data) {

@@ -212,6 +212,7 @@ extern void XTAINT_save_mem_tlbhit();
 extern void XTAINT_save_mem_tlbmiss();
 extern void XTAINT_log_temp();
 extern void XTAINT_log_func_mark();
+extern void XTAINT_log_ret_mark();
 #endif /* CONFIG_TCG_XTAINT */
 
 #endif /* CONFIG_TCG_TAINT */

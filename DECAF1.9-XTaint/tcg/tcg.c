@@ -1341,6 +1341,9 @@ if (!presweep)
         case INDEX_op_XTAINT_set_label:
         	args--;
         	break;
+        case INDEX_op_XTAINT_ret_mark:
+        	args -= def->nb_args;
+        	break;
 #endif /* CONFIG_TCG_XTAINT */
         case INDEX_op_debug_insn_start:
             args -= def->nb_args;
@@ -2219,6 +2222,9 @@ static inline int tcg_gen_code_common(TCGContext *s, uint8_t *gen_code_buf,
 			break;
 		case INDEX_op_XTAINT_mark:
 			tcg_out_XTAINT_mark(s, args);
+			break;
+		case INDEX_op_XTAINT_ret_mark:
+			tcg_out_XTAINT_ret_mark(s, args);
 			break;
 		case INDEX_op_XTAINT_set_label:
 			tcg_out_label(s, args[0], (long)s->code_ptr);

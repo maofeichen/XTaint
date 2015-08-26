@@ -2394,12 +2394,14 @@ static inline void tcg_out_XTAINT_mark(TCGContext *s, const TCGArg *args){
 //	}
 
 	if(args[0] == X_CALL_MARK ||\
+		args[0] == X_RET_MARK ||\
 		args[0] == X_SIZE_BEGIN ||\
 		args[0] == X_SIZE_END) {
 		tcg_out_pushi(s, args[1]);	// push the addr
 		tcg_out_pushi(s, args[0]);	// push the flag
-	} else if(args[0] == X_RET_MARK)
-		tcg_out_pushi(s, args[0]); // push the flag only
+	}
+//	else if(args[0] == X_RET_MARK)
+//		tcg_out_pushi(s, args[0]); // push the flag only
 	else{
 		fprintf(stderr, "unkonw function mark, abort\n");
 		tcg_abort();
@@ -2417,13 +2419,72 @@ static inline void tcg_out_XTAINT_mark(TCGContext *s, const TCGArg *args){
 
 	// restore stack
 	if(args[0] == X_CALL_MARK ||\
+		args[0] == X_RET_MARK ||\
 		args[0] == X_SIZE_BEGIN ||\
 		args[0] == X_SIZE_END)
 		tcg_out_addi(s, TCG_REG_ESP, 0x8);
-	else if(args[0] == X_RET_MARK)
-		tcg_out_addi(s, TCG_REG_ESP, 0x4);
+//	else if(args[0] == X_RET_MARK)
+//		tcg_out_addi(s, TCG_REG_ESP, 0x4);
 
 }
+
+static inline void tcg_out_XTAINT_ret_mark(TCGContext *s, const TCGArg *args){
+	TCGTemp *cur_esp;
+	int8_t ret_flag = args[0];
+	cur_esp = &s->temps[args[1]];
+
+	tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+	tcg_out_pushi(s, cur_esp->val);
+	tcg_out_pushi(s, ret_flag);
+
+//	switch(cur_esp->val_type){
+//		case TEMP_VAL_DEAD:
+//			printf("Temp is D\n");
+//			exit(1);
+//			break;
+//		case TEMP_VAL_MEM:
+//		{
+//			tcg_out_ld(s, cur_esp->type, tcg_target_call_iarg_regs[0],
+//					cur_esp->mem_reg,
+//					cur_esp->mem_offset);
+//			tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//			tcg_out_pushi(s, ret_flag);
+//		}
+//			break;
+//		case TEMP_VAL_REG:
+//		{
+////			printf("Temp val is as Reg\n");
+//			tcg_out_push(s, cur_esp->reg);
+//			tcg_out_pushi(s, ret_flag);
+//		}
+//			break;
+//		case TEMP_VAL_CONST:
+//		{
+////			printf("Temp val is as C\n");
+//			tcg_out_pushi(s, cur_esp->val);
+//			tcg_out_pushi(s, ret_flag);
+//		}
+//			break;
+//		default:
+//			printf("Unknown temp type, %d\n", cur_esp->val_type);
+//			break;
+//	}
+
+	tcg_out_push(s, TCG_REG_EAX);
+	tcg_out_push(s, TCG_REG_EBX);
+	tcg_out_push(s, TCG_REG_ECX);
+	tcg_out_push(s, TCG_REG_EDX);
+	tcg_out_calli(s, (tcg_target_long)XTAINT_log_ret_mark);
+	tcg_out_pop(s, TCG_REG_EDX);
+	tcg_out_pop(s, TCG_REG_ECX);
+	tcg_out_pop(s, TCG_REG_EBX);
+	tcg_out_pop(s, TCG_REG_EAX);
+
+	tcg_out_addi(s, TCG_REG_ESP, 0x8);
+
+	tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
+}
+
 #endif /* CONFIG_TCG_XTAINT */
 
 #endif /* CONFIG_TCG_TAINT */
@@ -2835,7 +2896,7 @@ static const TCGTargetOpDef x86_op_defs[] = {
 
 #ifdef CONFIG_TCG_XTAINT
     { INDEX_op_XTAINT_save_temp, { "r","r","r" } },
-//    { INDEX_op_XTAINT_call_mark, {} },
+    { INDEX_op_XTAINT_ret_mark, {"r"} },
     { INDEX_op_XTAINT_brcond_i32, {"r","ri"} },
 //    { INDEX_op_XTAINT_setcond_i32, { "q", "r", "ri" } },
 #endif /* CONFIG_TCG_XTAINT */

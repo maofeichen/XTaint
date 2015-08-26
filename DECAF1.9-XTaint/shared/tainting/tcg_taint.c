@@ -288,7 +288,8 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_brcond_i64:
 #ifdef CONFIG_TCG_XTAINT
       case INDEX_op_XTAINT_mark:
-    	  break;
+      case INDEX_op_XTAINT_ret_mark:
+//    	  break;
 #endif /* CONFIG_TCG_XTAINT */
         break;
 

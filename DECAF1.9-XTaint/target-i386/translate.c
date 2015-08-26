@@ -4244,6 +4244,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     target_ulong next_eip, tval;
     int rex_w, rex_r;
 
+#ifdef CONFIG_TCG_XTAINT
+    TCGv t_curr_esp;
+#endif /* CONFIG_TCG_XTAINT */
+
     //LOK: update the new globals - cur_pc is NOT the current_eip
     // and next_pc is the next IF jmp
     //cur_pc is pc_start and not current_eip since current_eip
@@ -6925,8 +6929,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         /* control */
     case 0xc2: /* ret im */
 #ifdef CONFIG_TCG_XTAINT
-    	if(xtaint_save_temp_enabled)
-    		gen_op_XTAINT_mark(X_RET_MARK, 0);
+    	if(xtaint_save_temp_enabled){
+//    		t_curr_esp = tcg_temp_new_i32();
+//    		tcg_gen_ld_tl(t_curr_esp, cpu_env, offsetof(CPUState, regs[R_ESP]));
+//    		tcg_gen_ld_tl(t_curr_esp, cpu_env, offsetof(CPUState, eip));
+//    		tcg_gen_XTAINT_ret_mark(X_RET_MARK, t_curr_esp);
+    		tcg_target_long curr_esp = cpu_single_env->regs[R_ESP];
+    		gen_op_XTAINT_mark(X_RET_MARK, curr_esp);
+//    		tcg_temp_free_i32(t_curr_esp);
+    	}
 #endif /* CONFIG_TCG_XTAINT */
         val = ldsw_code(s->pc);
         s->pc += 2;
@@ -6942,8 +6953,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         break;
     case 0xc3: /* ret */
 #ifdef CONFIG_TCG_XTAINT
-    	if(xtaint_save_temp_enabled)
-    		gen_op_XTAINT_mark(X_RET_MARK, 0);
+    	if(xtaint_save_temp_enabled){
+//    		t_curr_esp = tcg_temp_new_i32();
+//    		tcg_gen_ld_tl(t_curr_esp, cpu_env, offsetof(CPUState, regs[R_ESP]));
+//    		tcg_gen_ld_tl(t_curr_esp, cpu_env, offsetof(CPUState, eip));
+//    		tcg_gen_XTAINT_ret_mark(X_RET_MARK, t_curr_esp);
+    		tcg_target_long curr_esp = cpu_single_env->regs[R_ESP];
+    		gen_op_XTAINT_mark(X_RET_MARK, curr_esp);
+//    		tcg_temp_free_i32(t_curr_esp);
+    	}
 #endif /* CONFIG_TCG_XTAINT */
         gen_pop_T0(s);
         gen_pop_update(s);
@@ -6955,8 +6973,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         break;
     case 0xca: /* lret im */
 #ifdef CONFIG_TCG_XTAINT
-    	if(xtaint_save_temp_enabled)
-    		gen_op_XTAINT_mark(X_RET_MARK, 0);
+    	if(xtaint_save_temp_enabled){
+//    		t_curr_esp = tcg_temp_new_i32();
+//    		tcg_gen_ld_tl(t_curr_esp, cpu_env, offsetof(CPUState, regs[R_ESP]));
+//    		tcg_gen_ld_tl(t_curr_esp, cpu_env, offsetof(CPUState, eip));
+//    		tcg_gen_XTAINT_ret_mark(X_RET_MARK, t_curr_esp);
+    		tcg_target_long curr_esp = cpu_single_env->regs[R_ESP];
+    		gen_op_XTAINT_mark(X_RET_MARK, curr_esp);
+//    		tcg_temp_free_i32(t_curr_esp);
+    	}
 #endif /* CONFIG_TCG_XTAINT */
         val = ldsw_code(s->pc);
         s->pc += 2;
@@ -6987,8 +7012,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         break;
     case 0xcb: /* lret */
 #ifdef CONFIG_TCG_XTAINT
-    	if(xtaint_save_temp_enabled)
-    		gen_op_XTAINT_mark(X_RET_MARK, 0);
+    	if(xtaint_save_temp_enabled){
+//    		t_curr_esp = tcg_temp_new_i32();
+//    		tcg_gen_ld_tl(t_curr_esp, cpu_env, offsetof(CPUState, regs[R_ESP]));
+//    		tcg_gen_ld_tl(t_curr_esp, cpu_env, offsetof(CPUState, eip));
+//    		tcg_gen_XTAINT_ret_mark(X_RET_MARK, t_curr_esp);
+    		tcg_target_long curr_esp = cpu_single_env->regs[R_ESP];
+    		gen_op_XTAINT_mark(X_RET_MARK, curr_esp);
+//    		tcg_temp_free_i32(t_curr_esp);
+    	}
 #endif /* CONFIG_TCG_XTAINT */
         val = 0;
         goto do_lret;

@@ -2196,6 +2196,9 @@ static inline void tcg_gen_XTAINT_mark(tcg_target_long flag, tcg_target_long fun
 {
 	tcg_gen_op2i_i32(INDEX_op_XTAINT_mark, flag, func_addr);
 }
+static inline void tcg_gen_XTAINT_ret_mark(tcg_target_long flag, TCGv cur_esp){
+	tcg_gen_op2_i32(INDEX_op_XTAINT_ret_mark, flag, cur_esp);
+}
 static inline void gen_XTAINT_set_label(int n)
 {
     tcg_gen_op1i(INDEX_op_XTAINT_set_label, n);
