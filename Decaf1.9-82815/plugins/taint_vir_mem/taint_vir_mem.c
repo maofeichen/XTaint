@@ -12,36 +12,75 @@
 
 //basic stub for plugins
 static plugin_interface_t taint_mem_interface;
-static DECAF_Handle mem_write_handle = DECAF_NULL_HANDLE;
+static DECAF_Handle mem_opera_handle = DECAF_NULL_HANDLE;
 
 static int tainted_flag = 0;
+static int taint_addr = 0;
+static int taint_sz = 0;
+
+void do_pass_taint_arg(Monitor *mon, const QDict *qdict)
+{
+    uint32_t mem_addr, mem_size;
+    if(qdict != NULL){
+        mem_addr = qdict_get_int(qdict, "mem_addr");
+        mem_size = qdict_get_int(qdict, "mem_size");
+        DECAF_printf("The mem addr: %x and mem_size: %d", mem_addr, mem_size);
+
+        taint_addr = mem_addr;
+        taint_sz = mem_size;
+    }
+}
 
 /*
  * Handler to implement the command taint_guestOS_mem.
  */
-void do_taint_memory(){
-    tainted_flag = 1;
-
+void do_taint_memory(int addr, int sz){
+//    tainted_flag = 1;
     uint8_t taint_mark = 0xff;
-    uint8_t taint_source[TAINT_SZ];
-    memset(taint_source, taint_mark, TAINT_SZ);
-
-    if(taintcheck_taint_virtmem(BEGIN_ADDR, taint_mark, taint_source) != 0){
-        tainted_flag = 0;
-        DECAF_printf("Fail to taint guest OS memory!\n");
+    uint8_t taint_source[sz];
+    if(sz != 0){
+        memset(taint_source, taint_mark, sz);
+        if(taintcheck_taint_virtmem(addr, sz, taint_source) != 0){
+            DECAF_printf("Fail to taint guest OS memory!\n");
+        } else{
+            DECAF_printf("Sucessfully to taint guest OS memory!\n");
+            taint_addr = 0;
+            taint_sz = 0;
+        }
     }
+//    memset(taint_source, taint_mark, TAINT_SZ);
+//
+//    if(taintcheck_taint_virtmem(BEGIN_ADDR, TAINT_SZ, taint_source) != 0){
+//        tainted_flag = 0;
+//        DECAF_printf("Fail to taint guest OS memory!\n");
+//    } else
+//        DECAF_printf("Sucessfully to taint guest OS memory!\n");
 }
 
 /*
  * This callback is invoked when a new process starts in the guest OS.
  */
-static void load_mem_write_callback(DECAF_Callback_Params* param) {
-    if(param->mw.vaddr == BEGIN_ADDR){
-        if(!tainted_flag)
-            do_taint_memory();
+static void load_mem_read_callback(DECAF_Callback_Params* param) {
+    if(param->mr.vaddr == taint_addr && taint_addr != 0){
+        do_taint_memory(taint_addr, taint_sz);
+//    if(param->mr.vaddr == BEGIN_ADDR){
+//        if(!tainted_flag)
+//            do_taint_memory();
 
-        DECAF_printf("The monitor guest OS memory with virtual addr: %x has "
-                "been written\n", BEGIN_ADDR);
+//        DECAF_printf("The monitor guest OS memory with virtual addr: %x has "
+//                "been read\n", BEGIN_ADDR);
+    }
+}
+
+static void load_mem_write_callback(DECAF_Callback_Params* param) {
+    if(param->mw.vaddr == taint_addr && taint_addr != 0){
+        do_taint_memory(taint_addr, taint_sz);
+//    if(param->mw.vaddr == BEGIN_ADDR){
+//        if(!tainted_flag)
+//            do_taint_memory();
+
+//        DECAF_printf("The monitor guest OS memory with virtual addr: %x has "
+//                "been read\n", BEGIN_ADDR);
     }
 }
 
@@ -49,11 +88,13 @@ static int taint_mem_init(void) {
     DECAF_printf("Taint memory plugin starts...\n");
 
     //register for process create and process remove events
-    mem_write_handle = DECAF_register_callback(DECAF_MEM_WRITE_CB,
+//    mem_read_handle = DECAF_register_callback(DECAF_MEM_READ_CB,
+//            &load_mem_read_callback, NULL);
+    mem_opera_handle = DECAF_register_callback(DECAF_MEM_WRITE_CB,
             &load_mem_write_callback, NULL);
-    if (mem_write_handle == DECAF_NULL_HANDLE) {
+    if (mem_opera_handle == DECAF_NULL_HANDLE) {
         DECAF_printf(
-                "Could not register for memory write events\n");
+                "Could not register for memory operation events\n");
     }
     return (0);
 }
@@ -66,9 +107,9 @@ static void taint_mem_cleanup(void) {
     /*
      * Unregister for the taint memory callback and exit
      */
-    if(mem_write_handle != DECAF_NULL_HANDLE) {
-        DECAF_unregister_callback(DECAF_MEM_WRITE_CB, mem_write_handle);
-        mem_write_handle = DECAF_NULL_HANDLE;
+    if(mem_opera_handle != DECAF_NULL_HANDLE) {
+        DECAF_unregister_callback(DECAF_MEM_READ_CB, mem_opera_handle);
+        mem_opera_handle = DECAF_NULL_HANDLE;
     }
 }
 /*
@@ -80,7 +121,15 @@ static mon_cmd_t taint_mem_cmds[] = {
 		    .args_type = "",
 		    .mhandler.cmd = do_taint_memory,
 		    .params = "no params",
-		    .help = "Taint a specific memory buffer in guest OS" },
+		    .help = "Taint a specific memory buffer in guest OS"
+		},
+		{
+		    .name       = "pass_taint_args",
+		    .args_type  = "mem_addr:i,mem_size:i",
+		    .mhandler.cmd   = do_pass_taint_arg,
+		    .params     = "mem_addr mem_size",
+		    .help       = "pass the begin addr and size of tainting memory"
+		},
 		{ NULL, NULL, },
 };
 
