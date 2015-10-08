@@ -2107,6 +2107,7 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 //				tcg_out_addi(s, TCG_REG_ESP, -24);
 				XTAINT_save_tmp_gen_insn(s, args, ts, size);
 				XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+//				XTAINT_save_tmp_gen_insn(s, args, ots, size);
 			}
 
 
@@ -2310,10 +2311,11 @@ inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
 		case TEMP_VAL_MEM:
 		{
 			tcg_out_pushi(s, flag);
-			tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0],
-					ts->mem_reg,
-					ts->mem_offset); // save addr, which in source content
-			tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+
+			/*
+			 * save addr, because currently ots is a tmp that contains a addr.
+			 * so if load the content of the tmp, it is the addr
+			 */
 			switch(ots->val_type){ // save content
 				case TEMP_VAL_DEAD: break;
 				case TEMP_VAL_MEM:{
@@ -2326,12 +2328,19 @@ inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
 				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
 				default: printf("Unknown ts/ots type, %d\n", ots->val_type); break;
 			}
+			/*
+			 * save content, which is the same as the source content
+			 */
+			tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0],
+					ts->mem_reg,
+					ts->mem_offset); // save addr, which in source content
+			tcg_out_push(s, tcg_target_call_iarg_regs[0]);
 		}
 			break;
 		case TEMP_VAL_REG:
 		{
 			tcg_out_pushi(s, flag);
-			tcg_out_push(s, ts->reg); // save addr
+
 			switch(ots->val_type){
 				case TEMP_VAL_DEAD: break;
 				case TEMP_VAL_MEM:{
@@ -2344,12 +2353,14 @@ inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
 				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
 				default: printf("Unknown ots type, %d\n", ots->val_type); break;
 			}
+
+			tcg_out_push(s, ts->reg); // save content
 		}
 			break;
 		case TEMP_VAL_CONST:
 		{
 			tcg_out_pushi(s, flag);
-			tcg_out_pushi(s, ts->val);
+
 			switch(ots->val_type){
 				case TEMP_VAL_DEAD: break;
 				case TEMP_VAL_MEM:{
@@ -2362,6 +2373,8 @@ inline void XTAINT_save_tmp_st_pointer(TCGContext *s,
 				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
 				default: printf("Unknown ots type, %d\n", ots->val_type); break;
 			}
+
+			tcg_out_pushi(s, ts->val);
 		}
 			break;
 		default:
