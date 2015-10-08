@@ -862,9 +862,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 //				tcg_gen_XTAINT_brcond_i32(TCG_COND_EQ, arg1, t_zero, src_taint_label);
 //
 //            	XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag + X_DEBUG);
-//				XTaint_save_tmp_two_oprnd(ret, addr, arg0, flag + X_ST_POINTER - X_ST);
+				XTaint_save_tmp_two_oprnd(ret, addr, arg0, flag + X_ST_POINTER - X_ST);
             	// ret and addr were put in wrong order
-				XTaint_save_tmp_two_oprnd(addr, ret, arg0, flag + X_ST_POINTER - X_ST);
+//				XTaint_save_tmp_two_oprnd(addr, ret, arg0, flag + X_ST_POINTER - X_ST);
 //
 //				gen_XTAINT_set_label(src_taint_label);
             }
