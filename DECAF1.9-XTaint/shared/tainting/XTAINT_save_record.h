@@ -26,6 +26,7 @@
 #define X_ST_POINTER 0x1c
 #define X_SIZE_BEGIN 0x20
 #define X_SIZE_END 0x24
+#define X_LD_POINTER 0x28
 #define X_DEBUG 0x80
 
 extern int xtaint_save_temp_enabled;

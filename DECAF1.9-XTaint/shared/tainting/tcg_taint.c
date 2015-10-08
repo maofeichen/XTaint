@@ -676,17 +676,18 @@ static inline int gen_taintcheck_insn(int search_pc)
               // another taint src - pointer:
               // pointer tainted ? save (pointer, reg) : ;
               if(xtaint_save_temp_enabled){
-            	  src_taint_label = gen_new_label();
-            	  t_zero = tcg_temp_new_i32();
-            	  tcg_gen_movi_i32(t_zero, 0);
-            	  tcg_gen_XTAINT_brcond_i32(TCG_COND_EQ, arg0, t_zero, src_taint_label);
+//            	  src_taint_label = gen_new_label();
+//            	  t_zero = tcg_temp_new_i32();
+//            	  tcg_gen_movi_i32(t_zero, 0);
+//            	  tcg_gen_XTAINT_brcond_i32(TCG_COND_EQ, arg0, t_zero, src_taint_label);
 
+            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag);
             	  // should be t0 instead of arg1
-            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag + X_DEBUG);
+//            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag + X_DEBUG);
 //            	  XTaint_save_tmp_two_oprnd(orig0, orig1, t0, flag);
 //            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1?, flag);
 
-            	  gen_XTAINT_set_label(src_taint_label);
+//            	  gen_XTAINT_set_label(src_taint_label);
               }
 #endif
             } else

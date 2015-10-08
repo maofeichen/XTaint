@@ -2196,7 +2196,7 @@ static inline void tcg_out_XTAINT_save_tmp_internal(TCGContext *s, const TCGArg 
 	ts_shdw = &s->temps[args[0]];
 	ts = &s->temps[args[1]];
 	ots = &s->temps[args[2]];
-	int8_t size = args[3];
+	uint8_t size = args[3];
 
 	tcg_out_push(s, tcg_target_call_iarg_regs[0]);
 
