@@ -182,7 +182,10 @@ void xtaint_flush_to_file(FILE *xtaint_fp) {
 
 	while (i_ptr < xtaint_ptr_cur_rcrd) {
 		func_mark_ptr = i_ptr;
-		if(*func_mark_ptr == X_CALL_MARK || *func_mark_ptr == X_RET_MARK)
+		if(*func_mark_ptr == X_CALL_MARK \
+				|| *func_mark_ptr == X_RET_MARK\
+				|| *func_mark_ptr == X_SIZE_BEGIN\
+				|| *func_mark_ptr == X_SIZE_END)
 			goto func_mark;
 
 		fprintf(xtaint_fp, "%x\t", *i_ptr++);	// src_flag
