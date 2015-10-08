@@ -681,7 +681,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 //            	  tcg_gen_movi_i32(t_zero, 0);
 //            	  tcg_gen_XTAINT_brcond_i32(TCG_COND_EQ, arg0, t_zero, src_taint_label);
 
-            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag);
+            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag + X_LD_POINTER - X_LD);
             	  // should be t0 instead of arg1
 //            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag + X_DEBUG);
 //            	  XTaint_save_tmp_two_oprnd(orig0, orig1, t0, flag);

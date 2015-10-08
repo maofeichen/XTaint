@@ -2098,16 +2098,36 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 								label_isTaint,
 								small);
 
-			if(size < X_ST_POINTER ){ // if the instru is store pointer? N
-				XTAINT_save_tmp_gen_insn(s, args, ts, size);
-				XTAINT_save_tmp_gen_insn(s, args, ots, size);
-			}
-			else{ // Y
-				size -= X_ST_POINTER;
-//				tcg_out_addi(s, TCG_REG_ESP, -24);
-				XTAINT_save_tmp_gen_insn(s, args, ts, size);
-				XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+//			if(size < X_ST_POINTER ){ // if the instru is store pointer? N
+//				XTAINT_save_tmp_gen_insn(s, args, ts, size);
 //				XTAINT_save_tmp_gen_insn(s, args, ots, size);
+//			}
+//			else{ // Y
+//				size -= X_ST_POINTER;
+////				tcg_out_addi(s, TCG_REG_ESP, -24);
+//				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+//				XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+////				XTAINT_save_tmp_gen_insn(s, args, ots, size);
+//			}
+
+			if(size < X_LD_POINTER){
+
+				if(size < X_ST_POINTER ){ // if the instru is store pointer? N
+					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+					XTAINT_save_tmp_gen_insn(s, args, ots, size);
+				}
+				else{ // Y
+					size -= X_ST_POINTER;
+	//				tcg_out_addi(s, TCG_REG_ESP, -24);
+					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+					XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+	//				XTAINT_save_tmp_gen_insn(s, args, ots, size);
+				}
+			}else{
+				size -= X_LD_POINTER;
+//				printf("It's a qemu ld operation\n");
+				XTAINT_save_tmp_ld_pointer(s, args, ts, ots, size);
+				XTAINT_save_tmp_gen_insn(s, args, ots, size);
 			}
 
 
@@ -2136,15 +2156,34 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 			tcg_out_brcond32(s, TCG_COND_EQ, src_shdw_reg, ZERO, const_arg,
 								label_isTaint, small);
 
-			if(size < X_ST_POINTER ){
-				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+//			if(size < X_ST_POINTER ){
+//				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+//				XTAINT_save_tmp_gen_insn(s, args, ots, size);
+//			}
+//			else{
+//				size -= X_ST_POINTER;
+////				tcg_out_addi(s, TCG_REG_ESP, -24);
+//				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+//				XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+//			}
+
+			if(size < X_LD_POINTER){
+				if(size < X_ST_POINTER ){
+					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+					XTAINT_save_tmp_gen_insn(s, args, ots, size);
+				}
+				else{
+					size -= X_ST_POINTER;
+	//				tcg_out_addi(s, TCG_REG_ESP, -24);
+					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+					XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+				}
+			}else{
+				size -= X_LD_POINTER;
+//				printf("It's a qemu ld operation\n");
+//				XTAINT_save_tmp_gen_insn(s, args, ts, size);
+				XTAINT_save_tmp_ld_pointer(s, args, ts, ots, size);
 				XTAINT_save_tmp_gen_insn(s, args, ots, size);
-			}
-			else{
-				size -= X_ST_POINTER;
-//				tcg_out_addi(s, TCG_REG_ESP, -24);
-				XTAINT_save_tmp_gen_insn(s, args, ts, size);
-				XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
 			}
 
 //			tcg_out_push(s, TCG_REG_EBX);
@@ -2162,15 +2201,34 @@ static inline void tcg_out_XTAINT_save_temp(TCGContext *s, const TCGArg *args){
 		case TEMP_VAL_CONST:
 //			printf("Source shadow val is as C\n");
 			if(ts_shdw->val != 0) { // if source shadow is tainted
-				if(size < X_ST_POINTER ){
-					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+//				if(size < X_ST_POINTER ){
+//					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+//					XTAINT_save_tmp_gen_insn(s, args, ots, size);
+//				}
+//				else{
+//					size -= X_ST_POINTER;
+////					tcg_out_addi(s, TCG_REG_ESP, -24);
+//					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+//					XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+//				}
+
+				if(size < X_LD_POINTER){
+					if(size < X_ST_POINTER ){
+						XTAINT_save_tmp_gen_insn(s, args, ts, size);
+						XTAINT_save_tmp_gen_insn(s, args, ots, size);
+					}
+					else{
+						size -= X_ST_POINTER;
+	//					tcg_out_addi(s, TCG_REG_ESP, -24);
+						XTAINT_save_tmp_gen_insn(s, args, ts, size);
+						XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
+					}
+				}else{
+					size -= X_LD_POINTER;
+//					printf("It's a qemu ld operation\n");
+//					XTAINT_save_tmp_gen_insn(s, args, ts, size);
+					XTAINT_save_tmp_ld_pointer(s, args, ts, ots, size);
 					XTAINT_save_tmp_gen_insn(s, args, ots, size);
-				}
-				else{
-					size -= X_ST_POINTER;
-//					tcg_out_addi(s, TCG_REG_ESP, -24);
-					XTAINT_save_tmp_gen_insn(s, args, ts, size);
-					XTAINT_save_tmp_st_pointer(s, args, ts, ots, size);
 				}
 
 //				tcg_out_push(s, TCG_REG_EBX);
@@ -2287,6 +2345,93 @@ inline void XTAINT_save_tmp_gen_insn(TCGContext *s,
 			break;
 		default:
 			printf("Unknown temp type, %d\n", tmp->val_type);
+			break;
+	}
+}
+
+inline void XTAINT_save_tmp_ld_pointer(TCGContext *s,
+										TCGArg *args,
+										TCGTemp *ts,
+										TCGTemp *ots,
+										int8_t size){
+	int8_t flag = size;
+
+	switch(ts->val_type){
+		case TEMP_VAL_DEAD:
+//			printf("ts is D\n");
+			break;
+		case TEMP_VAL_MEM:
+		{
+			tcg_out_pushi(s, flag);
+
+			/*
+			 * save addr
+			 */
+			tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0],
+					ts->mem_reg,
+					ts->mem_offset); // save addr, which in source content
+			tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+
+			/*
+			 * save content, which is same as the content of ots
+			 */
+			switch(ots->val_type){ // save content
+				case TEMP_VAL_DEAD: break;
+				case TEMP_VAL_MEM:{
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+								ots->mem_reg,
+								ots->mem_offset);
+					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+				} break;
+				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
+				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
+				default: printf("Unknown ts/ots type, %d\n", ots->val_type); break;
+			}
+		}
+			break;
+		case TEMP_VAL_REG:
+		{
+			tcg_out_pushi(s, flag);
+
+			tcg_out_push(s, ts->reg); // save addr
+
+			// save content
+			switch(ots->val_type){
+				case TEMP_VAL_DEAD: break;
+				case TEMP_VAL_MEM:{
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+								ots->mem_reg,
+								ots->mem_offset);
+					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+				} break;
+				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
+				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
+				default: printf("Unknown ots type, %d\n", ots->val_type); break;
+			}
+		}
+			break;
+		case TEMP_VAL_CONST:
+		{
+			tcg_out_pushi(s, flag);
+
+			tcg_out_pushi(s, ts->val);
+
+			switch(ots->val_type){
+				case TEMP_VAL_DEAD: break;
+				case TEMP_VAL_MEM:{
+					tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+								ots->mem_reg,
+								ots->mem_offset);
+					tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+				} break;
+				case TEMP_VAL_REG: tcg_out_push(s, ots->reg); break;
+				case TEMP_VAL_CONST: tcg_out_pushi(s, ots->val); break;
+				default: printf("Unknown ots type, %d\n", ots->val_type); break;
+			}
+		}
+			break;
+		default:
+			printf("Unknown temp type, %d\n", ts->val_type);
 			break;
 	}
 }
