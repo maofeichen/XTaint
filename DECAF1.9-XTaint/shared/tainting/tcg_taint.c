@@ -827,7 +827,7 @@ static inline int gen_taintcheck_insn(int search_pc)
                 // Save another taint src - pointer:
                 // pointer tainted? save (pointer, content) : ;
                 if(xtaint_save_temp_enabled){
-                	XTaint_save_tmp_two_oprnd(addr, ret, arg0, flag + X_ST_POINTER - X_ST);
+                	XTaint_save_tmp_two_oprnd(addr, ret, arg0, flag + X_ST_POINTER);
                 }
 #endif
               } else
