@@ -577,29 +577,14 @@ static inline int gen_taintcheck_insn(int search_pc)
       /* Load/store operations (32 bit). */
       /* MemCheck: mkLazyN() (Just load/store taint from/to memory) */
       case INDEX_op_qemu_ld8u: 
-#ifdef CONFIG_TCG_XTAINT
-    	  flag = X_BYTE + X_LD;
-#endif
       case INDEX_op_qemu_ld8s:
-#ifdef CONFIG_TCG_XTAINT
-    	  flag = X_BYTE + X_LD;
-#endif
       case INDEX_op_qemu_ld16u:
-#ifdef CONFIG_TCG_XTAINT
-    	  flag = X_WORD + X_LD;
-#endif
       case INDEX_op_qemu_ld16s:
-#ifdef CONFIG_TCG_XTAINT
-    	  flag = X_WORD + X_LD;
-#endif
 #if TCG_TARGET_REG_BITS == 64
       case INDEX_op_qemu_ld32u:
       case INDEX_op_qemu_ld32s:
 #endif /* TCG_TARGET_REG_BITS == 64 */
       case INDEX_op_qemu_ld32:
-#ifdef CONFIG_TCG_XTAINT
-    	  flag = X_LONG + X_LD;
-#endif
         // TARGET_REG_BITS = 64 OR (TARGET_REG_BITS = 32, TARGET_LONG_BITS = 32)
         if (nb_iargs == 1) arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
         // TARGET_REG_BITS = 32, TARGET_LONG_BITS = 64
@@ -676,26 +661,21 @@ static inline int gen_taintcheck_insn(int search_pc)
               // another taint src - pointer:
               // pointer tainted ? save (pointer, reg) : ;
               if(xtaint_save_temp_enabled){
-//            	  src_taint_label = gen_new_label();
-//            	  t_zero = tcg_temp_new_i32();
-//            	  tcg_gen_movi_i32(t_zero, 0);
-//            	  tcg_gen_XTAINT_brcond_i32(TCG_COND_EQ, arg0, t_zero, src_taint_label);
-
-            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag + X_LD_POINTER - X_LD);
-            	  // should be t0 instead of arg1
-//            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag + X_DEBUG);
-//            	  XTaint_save_tmp_two_oprnd(orig0, orig1, t0, flag);
-//            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1?, flag);
-
-//            	  gen_XTAINT_set_label(src_taint_label);
+            	  XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag + X_LD_POINTER);
               }
 #endif
             } else
               /* Patch in opcode to load taint from tempidx */
               tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
-          } else
+          } else{
             /* Patch in opcode to load taint from tempidx */
             tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+#ifdef CONFIG_TCG_XTAINT
+            if(xtaint_save_temp_enabled){
+            	XTaint_save_tmp_two_oprnd(orig0, orig1, arg0, flag + X_LD_POINTER);
+            }
+#endif
+          }
         }
         break;
 
@@ -788,20 +768,10 @@ static inline int gen_taintcheck_insn(int search_pc)
 
 #if 1 // AWH - DEBUG
       case INDEX_op_qemu_st32:
-#ifdef CONFIG_TCG_XTAINT
-    	  flag = X_LONG + X_ST;
-#endif
         //DUMMY_TAINT(nb_oargs, nb_args);
         //break;
- 
       case INDEX_op_qemu_st8:
-#ifdef CONFIG_TCG_XTAINT
-    	  flag = X_BYTE + X_ST;
-#endif
       case INDEX_op_qemu_st16:
-#ifdef CONFIG_TCG_XTAINT
-    	  flag = X_WORD + X_ST;
-#endif
 #else
       case INDEX_op_qemu_st8: 
       case INDEX_op_qemu_st16:
@@ -854,27 +824,22 @@ static inline int gen_taintcheck_insn(int search_pc)
                 tcg_gen_st32_tl(t1, cpu_env, offsetof(OurCPUState,tempidx));
 #endif /* TARGET_REG_BITS */
 #ifdef CONFIG_TCG_XTAINT
-//            // Save another taint src - pointer:
-//            // pointer tainted? save (pointer, content) : ;
-            if(xtaint_save_temp_enabled){
-//				src_taint_label = gen_new_label();
-//				t_zero = tcg_temp_new_i32();
-//				tcg_gen_movi_i32(t_zero, 0);
-//				tcg_gen_XTAINT_brcond_i32(TCG_COND_EQ, arg1, t_zero, src_taint_label);
-//
-//            	XTaint_save_tmp_two_oprnd(ret, addr, arg1, flag + X_DEBUG);
-//				XTaint_save_tmp_two_oprnd(ret, addr, arg0, flag + X_ST_POINTER - X_ST);
-            	// ret and addr were put in wrong order
-				XTaint_save_tmp_two_oprnd(addr, ret, arg0, flag + X_ST_POINTER - X_ST);
-//
-//				gen_XTAINT_set_label(src_taint_label);
-            }
+                // Save another taint src - pointer:
+                // pointer tainted? save (pointer, content) : ;
+                if(xtaint_save_temp_enabled){
+                	XTaint_save_tmp_two_oprnd(addr, ret, arg0, flag + X_ST_POINTER - X_ST);
+                }
 #endif
-
               } else
                 tcg_gen_st32_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
-            } else
+            } else{
               tcg_gen_st32_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+#ifdef CONFIG_TCG_XTAINT
+                if(xtaint_save_temp_enabled){
+                	XTaint_save_tmp_two_oprnd(addr, ret, arg0, flag + X_ST_POINTER);
+                }
+#endif
+            }
 
             /* Insert the taint_qemu_st* IR */
             gen_opc_ptr++;

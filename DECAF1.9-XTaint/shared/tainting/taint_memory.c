@@ -20,8 +20,8 @@
 int taint_tracking_enabled = 0;
 int taint_nic_enabled = 0;
 int taint_pointers_enabled = 0;
-int taint_load_pointers_enabled = 1;
-int taint_store_pointers_enabled = 1;
+int taint_load_pointers_enabled = 0;
+int taint_store_pointers_enabled = 0;
 
 /* Root node for holding memory taint information */
 tbitpage_middle_t **taint_memory_page_table = NULL;
