@@ -1725,7 +1725,7 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     		tcg_out_pushi(s, flag); // save flag
 			tcg_out_pushi(s, data_reg); // save src reg idx
 			tcg_out_push(s, data_reg); // save src & dest val
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
 			tcg_out_addi(s, TCG_REG_ESP, 0x10);
 		} else
 			tcg_out_addi(s, TCG_REG_ESP, 0x4); // ignore vir addr pushed
@@ -1811,7 +1811,7 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     		tcg_out_pushi(s, flag); // save flag
 			tcg_out_pushi(s, data_reg); // save src reg idx
 			tcg_out_push(s, data_reg); // save src & dest val
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_st);
 
 			tcg_out_addi(s, TCG_REG_ESP, 0x10);
 		} else
@@ -1920,7 +1920,7 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     		tcg_out_pushi(s, flag); // save flag
 			tcg_out_pushi(s, data_reg); // save dest reg idx
 			tcg_out_push(s, data_reg); // save src & dest val
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
 
 			tcg_out_addi(s, TCG_REG_ESP, 0x10);
 		} else
@@ -2012,7 +2012,7 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
 			tcg_out_push(s, data_reg); // save src & dest val
 
 //			tcg_out_push(s, TCG_REG_EAX);
-			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
+//			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_ld);
 //			tcg_out_calli(s, (tcg_target_long)XTAINT_save_mem_tlbmiss);
 //			tcg_out_pop(s, TCG_REG_EAX);
 

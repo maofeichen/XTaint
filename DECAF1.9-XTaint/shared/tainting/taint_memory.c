@@ -568,63 +568,63 @@ void REGPARM __taint_stq_raw(unsigned long addr, gva_t vaddr) {
 
 #ifdef CONFIG_TCG_XTAINT
 void XTAINT_save_mem_st() {
-	register int ebp asm("ebp"); // base register
-	uint32_t offset = 0x8; // start record addr relative to base reg
-
-	uint8_t *flag = (uint8_t *) (ebp + offset + 0x8);
-	uint32_t *src_addr = (uint32_t *) (ebp + offset + 0x4);
-	uint32_t *dest_addr = (uint32_t *) (ebp + offset + 0xc);
-	uint32_t *val = (uint32_t *) (ebp + offset);
-
-	*xtaint_ptr_cur_rcrd++ = *flag;
-	*(uint32_t *) xtaint_ptr_cur_rcrd = *src_addr;
-	xtaint_ptr_cur_rcrd += 4;
-	*(uint32_t *) xtaint_ptr_cur_rcrd = *val;
-	xtaint_ptr_cur_rcrd += 4;
-
-	*xtaint_ptr_cur_rcrd++ = *flag; // could be optimized further
-	*(uint32_t *) xtaint_ptr_cur_rcrd = *dest_addr;
-	xtaint_ptr_cur_rcrd += 4;
-	*(uint32_t *) xtaint_ptr_cur_rcrd = *val;
-	xtaint_ptr_cur_rcrd += 4;
-
-	xtaint_cur_pool_sz -= NUM_BYTE_SAVE;
-
-	if (xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
-		xtaint_flush_to_file(xtaint_fp);
-		xtaint_ptr_cur_rcrd = xtaint_pool;
-		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
-	}
+//	register int ebp asm("ebp"); // base register
+//	uint32_t offset = 0x8; // start record addr relative to base reg
+//
+//	uint8_t *flag = (uint8_t *) (ebp + offset + 0x8);
+//	uint32_t *src_addr = (uint32_t *) (ebp + offset + 0x4);
+//	uint32_t *dest_addr = (uint32_t *) (ebp + offset + 0xc);
+//	uint32_t *val = (uint32_t *) (ebp + offset);
+//
+//	*xtaint_ptr_cur_rcrd++ = *flag;
+//	*(uint32_t *) xtaint_ptr_cur_rcrd = *src_addr;
+//	xtaint_ptr_cur_rcrd += 4;
+//	*(uint32_t *) xtaint_ptr_cur_rcrd = *val;
+//	xtaint_ptr_cur_rcrd += 4;
+//
+//	*xtaint_ptr_cur_rcrd++ = *flag; // could be optimized further
+//	*(uint32_t *) xtaint_ptr_cur_rcrd = *dest_addr;
+//	xtaint_ptr_cur_rcrd += 4;
+//	*(uint32_t *) xtaint_ptr_cur_rcrd = *val;
+//	xtaint_ptr_cur_rcrd += 4;
+//
+//	xtaint_cur_pool_sz -= NUM_BYTE_SAVE;
+//
+//	if (xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+//		xtaint_flush_to_file(xtaint_fp);
+//		xtaint_ptr_cur_rcrd = xtaint_pool;
+//		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+//	}
 }
 
 void XTAINT_save_mem_ld() {
-	register int ebp asm("ebp"); // base register
-	uint32_t offset = 0x8; // start record addr relative to base reg
-
-	uint8_t *flag = (uint8_t *) (ebp + offset + 0x8);
-	uint32_t *src_addr = (uint32_t *) (ebp + offset + 0xc);
-	uint32_t *dest_addr = (uint32_t *) (ebp + offset + 0x4);
-	uint32_t *val = (uint32_t *) (ebp + offset);
-
-	*xtaint_ptr_cur_rcrd++ = *flag;
-	*(uint32_t *) xtaint_ptr_cur_rcrd = *src_addr;
-	xtaint_ptr_cur_rcrd += 4;
-	*(uint32_t *) xtaint_ptr_cur_rcrd = *val;
-	xtaint_ptr_cur_rcrd += 4;
-
-	*xtaint_ptr_cur_rcrd++ = *flag; // could be optimized further
-	*(uint32_t *) xtaint_ptr_cur_rcrd = *dest_addr;
-	xtaint_ptr_cur_rcrd += 4;
-	*(uint32_t *) xtaint_ptr_cur_rcrd = *val;
-	xtaint_ptr_cur_rcrd += 4;
-
-	xtaint_cur_pool_sz -= NUM_BYTE_SAVE;
-
-	if (xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
-		xtaint_flush_to_file(xtaint_fp);
-		xtaint_ptr_cur_rcrd = xtaint_pool;
-		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
-	}
+//	register int ebp asm("ebp"); // base register
+//	uint32_t offset = 0x8; // start record addr relative to base reg
+//
+//	uint8_t *flag = (uint8_t *) (ebp + offset + 0x8);
+//	uint32_t *src_addr = (uint32_t *) (ebp + offset + 0xc);
+//	uint32_t *dest_addr = (uint32_t *) (ebp + offset + 0x4);
+//	uint32_t *val = (uint32_t *) (ebp + offset);
+//
+//	*xtaint_ptr_cur_rcrd++ = *flag;
+//	*(uint32_t *) xtaint_ptr_cur_rcrd = *src_addr;
+//	xtaint_ptr_cur_rcrd += 4;
+//	*(uint32_t *) xtaint_ptr_cur_rcrd = *val;
+//	xtaint_ptr_cur_rcrd += 4;
+//
+//	*xtaint_ptr_cur_rcrd++ = *flag; // could be optimized further
+//	*(uint32_t *) xtaint_ptr_cur_rcrd = *dest_addr;
+//	xtaint_ptr_cur_rcrd += 4;
+//	*(uint32_t *) xtaint_ptr_cur_rcrd = *val;
+//	xtaint_ptr_cur_rcrd += 4;
+//
+//	xtaint_cur_pool_sz -= NUM_BYTE_SAVE;
+//
+//	if (xtaint_cur_pool_sz < XTAINT_POOL_THRESHOLD) {
+//		xtaint_flush_to_file(xtaint_fp);
+//		xtaint_ptr_cur_rcrd = xtaint_pool;
+//		xtaint_cur_pool_sz = XTAINT_MAX_POOL_SIZE;
+//	}
 }
 
 void XTAINT_save_mem_tlbhit() {
