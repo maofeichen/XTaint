@@ -1425,16 +1425,23 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_add_i32(orig0, orig1, orig2);
 #ifdef CONFIG_TCG_XTAINT
           if(xtaint_save_temp_enabled){
-        	  if(orig1 == orig2) // if two srcs are same, only instu one
-        		  if(arg1)
-					  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
-        	  else {
-        		  if(arg1)
-					  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
-
-        		  if(arg2)
-					  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+        	  if(orig0 == orig1){// if 1st src and dest are same
+        		  // orig2 is src, arg2 is src shadow
+        		  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+        	  } else{
+        		  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+        		  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
         	  }
+//        	  if(orig1 == orig2) // if two srcs are same, only instu one
+//        		  if(arg1)
+//					  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+//        	  else {
+//        		  if(arg1)
+//					  XTaint_save_tmp_two_oprnd(orig0, orig1, arg1, X_LONG);
+//
+//        		  if(arg2)
+//					  XTaint_save_tmp_two_oprnd(orig0, orig2, arg2, X_LONG);
+//        	  }
           }
 #endif
         }
