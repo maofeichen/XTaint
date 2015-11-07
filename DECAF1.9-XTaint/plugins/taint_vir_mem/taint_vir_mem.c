@@ -39,7 +39,7 @@ void do_taint_memory(uint32_t addr, uint32_t sz, uint8_t pattern){
 
 	if(sz != 0){
 		memset(taint_source, pattern, sz);
-		begin_addr = addr - 8;
+		begin_addr = addr - 28;
 //		if (taintcheck_taint_virtmem(addr, sz, taint_source) != 0) {
 		if (taintcheck_taint_virtmem(begin_addr, sz, taint_source) != 0) {
 			DECAF_printf("Fail to taint guest OS memory!\n");
