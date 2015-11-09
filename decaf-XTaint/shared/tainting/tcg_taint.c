@@ -19,6 +19,10 @@
 #include "DECAF_callback_common.h"
 #include "DECAF_callback_to_QEMU.h"
 
+#ifdef CONFIG_TCG_XTAINT
+#include "xtaint/XT_log_ir.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 /* Target-specific metadata buffers are extern'd here so that the taint
    IR insertions can update them. */
 #ifdef CONFIG_TCG_TAINT
@@ -175,6 +179,9 @@ static inline int gen_taintcheck_insn(int search_pc)
   TCGv arg6, t5, t6;
 #endif /* TARGET check */
   TCGv orig0, orig1, orig2, orig3, orig4, orig5;
+#ifdef CONFIG_TCG_XTAINT
+  uint8_t xt_flag = 0;
+#endif /* CONFIG_TCG_XTAINT */
 
   /* Copy all of the existing ops/parms into a new buffer to back them up. */
   memcpy(gen_old_opc_buf, gen_old_opc_ptr, sizeof(uint16_t)*(nb_opc));
@@ -476,6 +483,10 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           /* Reinsert original opcode */
           tcg_gen_mov_i32(orig0, orig1);
+#ifdef CONFIG_TCG_XTAINT
+          if(xt_enable_log_ir)
+              XT_log_ir(arg1, orig1, orig0, xt_flag);
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
@@ -2752,6 +2763,13 @@ int retVal;
 
     return(retVal);
 }
+
+#ifdef CONFIG_TCG_XTAINT
+inline void XT_log_ir(TCGv src_shadow, TCGv src, TCGv dest, uint8_t flag){
+    tcg_gen_XT_log_ir(src_shadow, src, dest, flag);
+}
+#endif /* CONFIG_TCG_XTAINT */
+
 #if 0 //defined(USE_TCG_OPTIMIZATIONS)
 static void build_liveness_metadata(TCGContext *s)
 {
