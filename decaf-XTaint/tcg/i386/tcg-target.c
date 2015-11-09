@@ -1915,6 +1915,19 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
 }
 #endif /* CONFIG_TCG_TAINT */
 
+#ifdef CONFIG_TCG_XTAINT
+/*
+ * backend of XT_log_ir, no reg allocation needed
+ * args:
+ *  args[0]: index of source shadow
+ *  args[1]: index of source tmp
+ *  args[2]: index of destination tmp
+ *  args[3]: XT log flag
+ */
+static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
+}
+#endif /* CONFIG_TCG_XTAINT */
+
 static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
                               const TCGArg *args, const int *const_args)
 {
@@ -2305,6 +2318,9 @@ static const TCGTargetOpDef x86_op_defs[] = {
 #ifdef CONFIG_TCG_TAINT
     {INDEX_op_DECAF_checkeip,{"r","r"}},
 #endif /*CONFIG_TCG_TAITN*/
+//#ifdef CONFIG_TCG_XTAINT
+//    { INDEX_op_XT_log_ir, { "r", "r", "r" } },
+//#endif /* CONFIG_TCG_XTAINT */
     { INDEX_op_mov_i32, { "r", "r" } },
     { INDEX_op_movi_i32, { "r" } },
     { INDEX_op_ld8u_i32, { "r", "r" } },
