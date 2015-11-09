@@ -49,6 +49,7 @@ extern void VMI_init(void);
 
 #ifdef CONFIG_TCG_XTAINT
 #include "xtaint/XT_log.h"
+#include "xtaint/XT_log_ir.h"
 #include <stdio.h>
 #include <stdlib.h>
 #endif /* CONFIG_TCG_XTAINT */

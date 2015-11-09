@@ -123,5 +123,14 @@ http://code.google.com/p/decaf-platform/
         .help       = "Turn on/off tainting of pointers (load) (store)",
         .mhandler.cmd_new = do_taint_pointers,
 },
+#ifdef CONFIG_TCG_XTAINT
+{
+        .name       = "xtaint_log_ir",
+        .args_type  = "load:b",
+        .params     = "on|off",
+        .help       = "Turn on/off xtaint log ir",
+        .mhandler.cmd_new = xt_do_log_ir,
+},
+#endif /* CONFIG_TCG_XTAINT */
 #endif /* CONFIG_TCG_TAINT */
 

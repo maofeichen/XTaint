@@ -34,6 +34,8 @@ const uint32_t LEAF_ADDRESS_MASK = (2 << BITPAGE_LEAF_BITS) - 1;
 const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1; 
 
 #ifdef CONFIG_TCG_XTAINT
+int xt_enable_log_ir = 0;
+
 uint8_t xt_pool[XT_MAX_POOL_SIZE];
 uint8_t *xt_ptr_curr_record = xt_pool;
 uint32_t xt_curr_pool_sz = XT_POOL_THRESHOLD;
@@ -510,6 +512,55 @@ void REGPARM __taint_stq_raw(unsigned long addr, gva_t vaddr) {
 	__taint_stq_raw_paddr(addr, vaddr);
 }
 
+
+#ifdef CONFIG_TCG_XTAINT
+void XT_write_tmp(){
+    register int ebp asm("ebp");
+
+    uint32_t *des_val = (uint32_t *) (ebp + 16);
+    uint32_t *des_addr = (uint32_t *) (ebp + 20);
+    uint8_t *des_flag = (uint8_t *) (ebp + 24);
+
+    uint32_t *src_val = (uint32_t *) (ebp + 28);
+    uint32_t *src_addr = (uint32_t *) (ebp + 32);
+    uint8_t *src_flag = (uint8_t *) (ebp + 36);
+
+    *xt_ptr_curr_record++ = *src_flag;
+    *(uint32_t *) xt_ptr_curr_record = *src_addr;
+    xt_ptr_curr_record += 4;
+    *(uint32_t *) xt_ptr_curr_record = *src_val;
+    xt_ptr_curr_record += 4;
+    *xt_ptr_curr_record++ = *des_flag;
+    *(uint32_t *) xt_ptr_curr_record = *des_addr;
+    xt_ptr_curr_record += 4;
+    *(uint32_t *) xt_ptr_curr_record = *des_val;
+    xt_ptr_curr_record += 4;
+
+    xt_curr_pool_sz -= 18;
+
+    if (xt_curr_pool_sz < XT_POOL_THRESHOLD) {
+        xt_flush_file(xt_log);
+        xt_ptr_curr_record = xt_pool;
+        xt_curr_pool_sz = XT_MAX_POOL_SIZE;
+    }
+}
+
+int xt_do_log_ir(Monitor *mon, const QDict *qdict, QObject **ret_data){
+    if (!taint_tracking_enabled)
+        monitor_printf(default_mon, "Ignored, taint tracking is disabled\n");
+    else {
+        CPUState *env;
+        DECAF_stop_vm();
+        env = cpu_single_env ? cpu_single_env : first_cpu;
+        xt_enable_log_ir = qdict_get_bool(qdict, "load");
+        DECAF_start_vm();
+        tb_flush(env);
+        monitor_printf(default_mon, "log ir changed -> %s\n",
+                xt_enable_log_ir ? "ON " : "OFF");
+    }
+    return 0;
+}
+#endif /* CONFIG_TCG_XTAINT */
 
 uint32_t calc_tainted_bytes(void){
 	uint32_t tainted_bytes, i;

@@ -1937,10 +1937,12 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
     ots = &s->temps[args[2]];
     uint8_t flag = args[3];
 
-    int label_src_shadow_tainted = gen_new_label();
+    int label_src_shadow_tainted;
     int small = 1; // from qemu: Use SMALL != 0 to force a short forward branch
     int const_arg = 1;
     TCGArg ZERO = 0;
+
+    TCGReg src_shadow_reg;
 
     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
     switch(ts_shadow->val_type){
@@ -1960,6 +1962,8 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                 tcg_out_ld(s, ts_shadow->type, tcg_target_call_iarg_regs[0],
                                         ts_shadow->mem_reg,
                                         ts_shadow->mem_offset);
+
+            label_src_shadow_tainted = gen_new_label();
             // if source shadow tainted?
             tcg_out_brcond32(s, TCG_COND_EQ, tcg_target_call_iarg_regs[0],
                              ZERO,
@@ -1969,10 +1973,62 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
             XT_log_tmp(s, args, ts, flag);
             XT_log_tmp(s, args, ots, flag);
 
+            tcg_out_push(s, TCG_REG_ECX);
+            tcg_out_push(s, TCG_REG_EDX);
+            tcg_out_calli(s, (tcg_target_long) XT_write_tmp);
+            tcg_out_pop(s, TCG_REG_EDX);
+            tcg_out_pop(s, TCG_REG_ECX);
+
+            tcg_out_addi(s, TCG_REG_ESP, 24); // reset esp val due to push
             tcg_out_label(s, label_src_shadow_tainted, (tcg_target_long)s->code_ptr);
         }
-        break;
+            break;
+        case TEMP_VAL_REG:
+        {
+            src_shadow_reg = ts_shadow->reg;
+            label_src_shadow_tainted = gen_new_label();
+            // if source shadow tainted?
+            tcg_out_brcond32(s, TCG_COND_EQ, src_shadow_reg,
+                             ZERO,
+                             const_arg,
+                             label_src_shadow_tainted,
+                             small);
+
+            XT_log_tmp(s, args, ts, flag);
+            XT_log_tmp(s, args, ots, flag);
+
+            tcg_out_push(s, TCG_REG_ECX);
+            tcg_out_push(s, TCG_REG_EDX);
+            tcg_out_calli(s, (tcg_target_long) XT_write_tmp);
+            tcg_out_pop(s, TCG_REG_EDX);
+            tcg_out_pop(s, TCG_REG_ECX);
+
+            tcg_out_addi(s, TCG_REG_ESP, 24); // reset esp val due to push
+            tcg_out_label(s, label_src_shadow_tainted, (tcg_target_long)s->code_ptr);
+        }
+            break;
+        case TEMP_VAL_CONST:
+        {
+            if(ts_shadow->val != 0){
+                XT_log_tmp(s, args, ts, flag);
+                XT_log_tmp(s, args, ots, flag);
+
+                tcg_out_push(s, TCG_REG_ECX);
+                tcg_out_push(s, TCG_REG_EDX);
+                tcg_out_calli(s, (tcg_target_long) XT_write_tmp);
+                tcg_out_pop(s, TCG_REG_EDX);
+                tcg_out_pop(s, TCG_REG_ECX);
+
+                tcg_out_addi(s, TCG_REG_ESP, 24); // reset esp val due to push
+            }
+        }
+            break;
+        default:
+            fprintf(stderr, "unknown source shadow type: %d\n", ts_shadow->val_type);
+            assert(1 == 0);
+            break;
     }
+    tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
 }
 
 /*

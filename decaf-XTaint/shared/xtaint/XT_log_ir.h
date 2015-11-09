@@ -27,7 +27,11 @@
 #define X_LD_POINTER 0x28
 #define X_DEBUG 0x80
 
-extern int xtaint_save_temp_enabled;
+extern int xt_enable_log_ir;
+
+extern int xt_do_log_ir(Monitor *mon, const QDict *qdict, QObject **ret_data);
+
+extern void XT_write_tmp();
 #endif /* CONFIG_TCG_XTAINT */
 
 #endif /* XT_LOG_IR_H_ */
