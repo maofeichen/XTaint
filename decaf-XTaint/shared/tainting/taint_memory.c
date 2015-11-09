@@ -9,7 +9,7 @@
 
 #ifdef CONFIG_TCG_XTAINT
 #include "shared/xtaint/XT_log.h"
-#include "shared/xtaint/XT_ir_propagate.h"
+#include "shared/xtaint/XT_log_ir.h"
 #endif /* CONFIG_TCG_XTAINT */
 
 #ifdef CONFIG_TCG_TAINT

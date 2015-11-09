@@ -28,7 +28,13 @@
 #ifndef CONFIG_SOFTMMU
 #error "CONFIG_TCG_TAINT can only be enabled with a SOFTMMU target!"
 #endif /* CONFIG_SOFTMMU */
-#endif /* CONFIG_TCG_TAINT */
+
+// mchen
+#ifdef CONFIG_TCG_XTAINT
+#include "xtaint/XT_log_ir.h"
+#endif /* CONFGI_TCG_XTAINT */
+
+#endif /* CONFIG_TCG_XTAINT */
 #include "DECAF_callback_to_QEMU.h"
 
 #ifndef NDEBUG
@@ -1925,6 +1931,118 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
  *  args[3]: XT log flag
  */
 static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
+    TCGTemp *ts_shadow, *ts, *ots;
+    ts_shadow = &s->temps[args[0]];
+    ts = &s->temps[args[1]];
+    ots = &s->temps[args[2]];
+    uint8_t flag = args[3];
+
+    int label_src_shadow_tainted = gen_new_label();
+    int small = 1; // from qemu: Use SMALL != 0 to force a short forward branch
+    int const_arg = 1;
+    TCGArg ZERO = 0;
+
+    tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+    switch(ts_shadow->val_type){
+        case TEMP_VAL_DEAD:
+            fprintf(stderr, "source shadow tmp is deal\n");
+            assert(1 == 0);
+            break;
+        case TEMP_VAL_MEM:
+        {
+            // notice that push regs[0], the esp val -4 bytes, result in the
+            // relative addr of source shadow is incorrect; +4 bytes to cancel
+            if(ts_shadow->mem_reg == 0x4) // esp case
+                tcg_out_ld(s, ts_shadow->type, tcg_target_call_iarg_regs[0],
+                                        ts_shadow->mem_reg,
+                                        ts_shadow->mem_offset + 0x4);
+            else
+                tcg_out_ld(s, ts_shadow->type, tcg_target_call_iarg_regs[0],
+                                        ts_shadow->mem_reg,
+                                        ts_shadow->mem_offset);
+            // if source shadow tainted?
+            tcg_out_brcond32(s, TCG_COND_EQ, tcg_target_call_iarg_regs[0],
+                             ZERO,
+                             const_arg,
+                             label_src_shadow_tainted,
+                             small);
+            XT_log_tmp(s, args, ts, flag);
+            XT_log_tmp(s, args, ots, flag);
+
+            tcg_out_label(s, label_src_shadow_tainted, (tcg_target_long)s->code_ptr);
+        }
+        break;
+    }
+}
+
+/*
+ * log tmp
+ */
+inline void XT_log_tmp(TCGContext *s,
+                       TCGArg *args,
+                       TCGTemp *tmp,
+                       uint8_t flag){
+    switch(tmp->val_type){
+        case TEMP_VAL_DEAD:
+            fprintf(stderr, "tmp is deal\n");
+            assert(1 == 0);
+            break;
+        case TEMP_VAL_MEM:
+        {
+            if(tmp->mem_reg == 4)
+                flag += XT_BASE_ESP;
+            else if(tmp->mem_reg == 5)
+                flag += XT_BASE_EBP;
+            else{
+                fprintf(stderr, "base reg is neither esp nor ebp: %x\n", tmp->mem_reg);
+                assert(1 == 0);
+            }
+
+            tcg_out_pushi(s, flag);
+            tcg_out_pushi(s, tmp->mem_offset);
+            tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+                       tmp->mem_reg, tmp->mem_offset);
+            tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+        }
+        break;
+        case TEMP_VAL_REG:
+        {
+            // any chance to be esp too?
+            if(tmp->mem_allocated == 1 && tmp->mem_reg == 5){
+                flag += XT_BASE_EBP;
+                tcg_out_pushi(s, flag);
+                tcg_out_pushi(s, tmp->mem_offset);
+                tcg_out_push(s, tmp->reg);
+            }else{
+                tcg_out_pushi(s, flag);
+                tcg_out_pushi(s, tmp->reg);
+                tcg_out_push(s, tmp->reg);
+            }
+        }
+        break;
+        case TEMP_VAL_CONST:
+        {
+            if(tmp->mem_allocated == 1 && tmp->mem_reg == 5){
+                            flag += XT_BASE_EBP;
+                            tcg_out_pushi(s, flag);
+                            tcg_out_pushi(s, tmp->mem_offset);
+                            tcg_out_push(s, tmp->reg);
+            }else if(s->reg_to_temp[tmp->reg] == args[1]){
+                tcg_out_pushi(s, flag);
+                tcg_out_pushi(s, tmp->reg);
+                tcg_out_pushi(s, tmp->val);
+            }else {
+                tcg_out_pushi(s, flag);
+                tcg_out_pushi(s, 0x004e4f43);
+                tcg_out_pushi(s, tmp->val);
+            }
+        }
+        break;
+        default:
+            fprintf(stderr, "unknown tmp type: %d\n", tmp->val_type);
+            assert(1 == 0);
+            break;
+    }
 }
 #endif /* CONFIG_TCG_XTAINT */
 

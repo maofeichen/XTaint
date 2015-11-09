@@ -1,10 +1,10 @@
 /*
- * XT_ir_propagate.h
+ * XT_log_ir.h
  *      Author: mchen
  */
 
-#ifndef XT_IR_PROPAGATE_H_
-#define XT_IR_PROPAGATE_H_
+#ifndef XT_LOG_IR_H_
+#define XT_LOG_IR_H_
 
 #ifdef CONFIG_TCG_XTAINT
 #define NUM_BYTE_SAVE 0x12
@@ -14,8 +14,8 @@
 #define X_WORD 0x2
 #define X_LONG 0x3
 #define X_QUAD 0x4
-#define X_BASE_ESP 0x4  // address is relative to esp
-#define X_BASE_EBP 0x8  // address is relative to ebp
+#define XT_BASE_ESP 0x4  // address is relative to esp
+#define XT_BASE_EBP 0x8  // address is relative to ebp
 #define X_LD 0xc
 #define X_ST 0x10
 #define X_CALL_MARK 0x14
@@ -30,4 +30,4 @@
 extern int xtaint_save_temp_enabled;
 #endif /* CONFIG_TCG_XTAINT */
 
-#endif /* XT_IR_PROPAGATE_H_ */
+#endif /* XT_LOG_IR_H_ */
