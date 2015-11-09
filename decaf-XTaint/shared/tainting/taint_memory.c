@@ -7,6 +7,11 @@
 #include "DECAF_callback_common.h"
 #include "shared/DECAF_callback_to_QEMU.h"
 
+#ifdef CONFIG_TCG_XTAINT
+#include "shared/xtaint/XT_log.h"
+#include "shared/xtaint/XT_ir_propagate.h"
+#endif /* CONFIG_TCG_XTAINT */
+
 #ifdef CONFIG_TCG_TAINT
 
 /* Track whether the taint tracking system is enabled or not */
@@ -27,6 +32,58 @@ tbitpage_leaf_pool_t leaf_pool;
 tbitpage_middle_pool_t middle_pool;
 const uint32_t LEAF_ADDRESS_MASK = (2 << BITPAGE_LEAF_BITS) - 1;
 const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1; 
+
+#ifdef CONFIG_TCG_XTAINT
+uint8_t xt_pool[XT_MAX_POOL_SIZE];
+uint8_t *xt_ptr_curr_record = xt_pool;
+uint32_t xt_curr_pool_sz = XT_POOL_THRESHOLD;
+
+FILE *xt_log = NULL;
+
+void xt_flush_file(FILE *xt_log) {
+    uint8_t *i_ptr = xt_pool;
+    uint8_t *func_mark_ptr;
+
+    while (i_ptr < xt_ptr_curr_record) {
+        func_mark_ptr = i_ptr;
+        if(*func_mark_ptr == X_CALL_MARK \
+                || *func_mark_ptr == X_RET_MARK\
+                || *func_mark_ptr == X_SIZE_BEGIN\
+                || *func_mark_ptr == X_SIZE_END)
+            goto func_mark;
+
+        fprintf(xt_log, "%x\t", *i_ptr++);   // src_flag
+        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_addr
+        i_ptr += 4;
+        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_val
+        i_ptr += 4;
+
+        func_mark_ptr = i_ptr;
+        // if function mark, print newline
+        if(*func_mark_ptr == X_CALL_MARK || *func_mark_ptr == X_RET_MARK )
+            goto func_mark;
+
+        fprintf(xt_log, "%x\t", *i_ptr++);   // des_flag
+        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // des_addr
+        i_ptr += 4;
+        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // des_val
+        i_ptr += 4;
+
+        fprintf(xt_log, "\n");
+        continue;
+
+func_mark:
+        fprintf(xt_log, "%x\t", *i_ptr++);   // src_flag
+        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_addr
+        i_ptr += 4;
+        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_val
+        i_ptr += 4;
+
+        fprintf(xt_log, "\n");
+    }
+    fprintf(xt_log, "\n");
+}
+#endif /* CONFIG_TCG_XTAINT */
 
 void allocate_leaf_pool(void) {
   int i;

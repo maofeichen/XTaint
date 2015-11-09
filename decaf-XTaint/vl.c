@@ -1443,6 +1443,9 @@ static bool main_loop_should_exit(void)
     }
     if (qemu_shutdown_requested()) {
         qemu_kill_report();
+#ifdef CONFIG_TCG_XTAINT
+        XT_clean();
+#endif /* CONFIG_TCG_XTAINT */
         monitor_protocol_event(QEVENT_SHUTDOWN, NULL);
         if (no_shutdown) {
             vm_stop(RUN_STATE_SHUTDOWN);
@@ -3514,6 +3517,9 @@ int main(int argc, char **argv, char **envp)
     // AWH - FIXME: Change to new do_load_plugin() interface
     if (loadvm == NULL && load_plugin)
         do_load_plugin_internal(cur_mon, load_plugin);
+#ifdef CONFIG_TCG_XTAINT
+    XT_init();
+#endif /* CONFIG_TCG_XTAINT */
 #endif // AWH
 
     if (loadvm) {

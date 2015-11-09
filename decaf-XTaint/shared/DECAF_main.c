@@ -47,6 +47,12 @@
 extern void VMI_init(void);
 #endif
 
+#ifdef CONFIG_TCG_XTAINT
+#include "xtaint/XT_log.h"
+#include <stdio.h>
+#include <stdlib.h>
+#endif /* CONFIG_TCG_XTAINT */
+
 int DECAF_kvm_enabled = 0;
 
 plugin_interface_t *decaf_plugin = NULL;
@@ -765,3 +771,21 @@ void DECAF_bdrv_open(int index, void *opaque) {
   ++devices;
 }
 
+#ifdef CONFIG_TCG_XTAINT
+char *xt_log_path =
+        "/home/user/Workspace/XTaint/Result/xt-log.txt";
+
+void XT_init(void) {
+    if((xt_log = fopen(xt_log_path, "wa") ) == NULL){
+            fprintf(stderr, "fail to open xtaint log\n");
+    }
+    printf("XTAINT: open log\n");
+}
+
+void XT_clean(void) {
+    if(xt_curr_pool_sz < XT_MAX_POOL_SIZE)
+         xt_flush_file(xt_log);
+    fclose(xt_log);
+    printf("XTAINT: close log\n");
+}
+#endif /* CONFIG_TCG_XTAINT */
