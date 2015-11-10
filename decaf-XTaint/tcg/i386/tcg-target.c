@@ -2094,25 +2094,28 @@ inline void XT_log_tmp(TCGContext *s,
         case TEMP_VAL_REG:
         {
             // any chance to be esp too?
-            if(tmp->mem_allocated == 1 && tmp->mem_reg == 5){
-                flag += XT_BASE_EBP;
-                tcg_out_pushi(s, flag);
-                tcg_out_pushi(s, tmp->mem_offset);
-                tcg_out_push(s, tmp->reg);
-            }else{
-                tcg_out_pushi(s, flag);
-                tcg_out_pushi(s, tmp->reg);
-                tcg_out_push(s, tmp->reg);
-            }
+//            if(tmp->mem_allocated == 1 && tmp->mem_reg == 5){
+//                flag += XT_BASE_EBP;
+//                tcg_out_pushi(s, flag);
+//                tcg_out_pushi(s, tmp->mem_offset);
+//                tcg_out_push(s, tmp->reg);
+//            }else{
+//                tcg_out_pushi(s, flag);
+//                tcg_out_pushi(s, tmp->reg);
+//                tcg_out_push(s, tmp->reg);
+//            }
+            tcg_out_pushi(s, flag);
+            tcg_out_pushi(s, tmp->reg);
+            tcg_out_push(s, tmp->reg);
         }
         break;
         case TEMP_VAL_CONST:
         {
             if(tmp->mem_allocated == 1 && tmp->mem_reg == 5){
-                            flag += XT_BASE_EBP;
-                            tcg_out_pushi(s, flag);
-                            tcg_out_pushi(s, tmp->mem_offset);
-                            tcg_out_push(s, tmp->reg);
+                flag += XT_BASE_EBP;
+                tcg_out_pushi(s, flag);
+                tcg_out_pushi(s, tmp->mem_offset);
+                tcg_out_push(s, tmp->reg);
             }else if(s->reg_to_temp[tmp->reg] == args[1]){
                 tcg_out_pushi(s, flag);
                 tcg_out_pushi(s, tmp->reg);
