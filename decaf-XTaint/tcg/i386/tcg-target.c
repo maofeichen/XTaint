@@ -2075,17 +2075,23 @@ inline void XT_log_tmp(TCGContext *s,
             break;
         case TEMP_VAL_MEM:
         {
-            if(tmp->mem_reg == 4)
-                flag += XT_BASE_ESP;
-            else if(tmp->mem_reg == 5)
-                flag += XT_BASE_EBP;
-            else{
-                fprintf(stderr, "base reg is neither esp nor ebp: %x\n", tmp->mem_reg);
-                assert(1 == 0);
-            }
-
+//            if(tmp->mem_reg == 4)
+//                flag += XT_BASE_ESP;
+//            else if(tmp->mem_reg == 5)
+//                flag += XT_BASE_EBP;
+//            else{
+//                fprintf(stderr, "base reg is neither esp nor ebp: %x\n", tmp->mem_reg);
+//                assert(1 == 0);
+//            }
             tcg_out_pushi(s, flag);
-            tcg_out_pushi(s, tmp->mem_offset);
+
+            // log addr
+//            tcg_out_pushi(s, tmp->mem_offset);
+            tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
+            tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset);
+            tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+
+            // log val
             tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
                        tmp->mem_reg, tmp->mem_offset);
             tcg_out_push(s, tcg_target_call_iarg_regs[0]);
