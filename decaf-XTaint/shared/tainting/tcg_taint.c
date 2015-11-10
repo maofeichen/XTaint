@@ -484,8 +484,10 @@ static inline int gen_taintcheck_insn(int search_pc)
           /* Reinsert original opcode */
           tcg_gen_mov_i32(orig0, orig1);
 #ifdef CONFIG_TCG_XTAINT
-          if(xt_enable_log_ir)
+          if(xt_enable_log_ir){
+              xt_flag = 0;
               XT_log_ir(arg1, orig1, orig0, xt_flag);
+          }
 #endif /* CONFIG_TCG_XTAINT */
         }
         break;
@@ -509,7 +511,9 @@ static inline int gen_taintcheck_insn(int search_pc)
           /* Patch qemu_ld* opcode into taint_qemu_ld* */
           gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
           orig0 = gen_opparam_ptr[-3];
-
+#ifdef CONFIG_TCG_XTAINT
+          orig1 = gen_opparam_ptr[-2]; // NEED: get mem addr
+#endif /* CONFIG_TCG_XTAINT */
           /* Are we doing pointer tainting? */
           if (taint_load_pointers_enabled) {
             arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
@@ -575,6 +579,13 @@ static inline int gen_taintcheck_insn(int search_pc)
           } else
             /* Patch in opcode to load taint from tempidx */
             tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+#ifdef CONFIG_TCG_XTAINT
+          if(xt_enable_log_ir){
+              xt_flag = 0;
+              xt_flag += XT_LD;
+              XT_log_ir(arg0, orig1, orig0, xt_flag);
+          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 

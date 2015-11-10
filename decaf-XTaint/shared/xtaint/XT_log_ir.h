@@ -16,8 +16,8 @@
 #define X_QUAD 0x4
 #define XT_BASE_ESP 0x4  // address is relative to esp
 #define XT_BASE_EBP 0x8  // address is relative to ebp
-#define X_LD 0xc
-#define X_ST 0x10
+#define XT_LD 0xc
+#define XT_ST 0x10
 #define X_CALL_MARK 0x14
 #define X_RET_MARK 0x18
 /* handle specially for memory store with pointer as taint source */

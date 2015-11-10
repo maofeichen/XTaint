@@ -47,12 +47,12 @@ void xt_flush_file(FILE *xt_log) {
     uint8_t *func_mark_ptr;
 
     while (i_ptr < xt_ptr_curr_record) {
-        func_mark_ptr = i_ptr;
-        if(*func_mark_ptr == X_CALL_MARK \
-                || *func_mark_ptr == X_RET_MARK\
-                || *func_mark_ptr == X_SIZE_BEGIN\
-                || *func_mark_ptr == X_SIZE_END)
-            goto func_mark;
+//        func_mark_ptr = i_ptr;
+//        if(*func_mark_ptr == X_CALL_MARK \
+//                || *func_mark_ptr == X_RET_MARK\
+//                || *func_mark_ptr == X_SIZE_BEGIN\
+//                || *func_mark_ptr == X_SIZE_END)
+//            goto func_mark;
 
         fprintf(xt_log, "%x\t", *i_ptr++);   // src_flag
         fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_addr
@@ -60,10 +60,10 @@ void xt_flush_file(FILE *xt_log) {
         fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_val
         i_ptr += 4;
 
-        func_mark_ptr = i_ptr;
+//        func_mark_ptr = i_ptr;
         // if function mark, print newline
-        if(*func_mark_ptr == X_CALL_MARK || *func_mark_ptr == X_RET_MARK )
-            goto func_mark;
+//        if(*func_mark_ptr == X_CALL_MARK || *func_mark_ptr == X_RET_MARK )
+//            goto func_mark;
 
         fprintf(xt_log, "%x\t", *i_ptr++);   // des_flag
         fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // des_addr
