@@ -1974,6 +1974,10 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                 flag -= XT_LD;
                 XT_log_tmp_ld(s, args, ts, ots, flag);
                 XT_log_tmp(s, args, ots, flag);
+            }else if(flag == XT_ST){
+                flag -= XT_ST;
+                XT_log_tmp(s, args, ts, flag);
+                XT_log_tmp_st(s, args, ts, ots, flag);
             }else{
                 XT_log_tmp(s, args, ts, flag);
                 XT_log_tmp(s, args, ots, flag);
@@ -2004,6 +2008,10 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                 flag -= XT_LD;
                 XT_log_tmp_ld(s, args, ts, ots, flag);
                 XT_log_tmp(s, args, ots, flag);
+            }else if(flag == XT_ST){
+                flag -= XT_ST;
+                XT_log_tmp(s, args, ts, flag);
+                XT_log_tmp_st(s, args, ts, ots, flag);
             }else{
                 XT_log_tmp(s, args, ts, flag);
                 XT_log_tmp(s, args, ots, flag);
@@ -2026,6 +2034,10 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                     flag -= XT_LD;
                     XT_log_tmp_ld(s, args, ts, ots, flag);
                     XT_log_tmp(s, args, ots, flag);
+                }else if(flag == XT_ST){
+                    flag -= XT_ST;
+                    XT_log_tmp(s, args, ts, flag);
+                    XT_log_tmp_st(s, args, ts, ots, flag);
                 }else{
                     XT_log_tmp(s, args, ts, flag);
                     XT_log_tmp(s, args, ots, flag);
@@ -2127,7 +2139,7 @@ inline void XT_log_tmp_ld(TCGContext *s,
     switch(ts->val_type){
         case TEMP_VAL_DEAD:
             fprintf(stderr, "tmp is dead\n");
-//            assert(1 == 0);
+            assert(1 == 0);
             break;
         case TEMP_VAL_MEM:
         {
@@ -2136,6 +2148,7 @@ inline void XT_log_tmp_ld(TCGContext *s,
             tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0], ts->mem_reg,
                        ts->mem_offset);
             tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+
             // log val
             // can dest and src reg be same?
 //            tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0],
@@ -2214,6 +2227,108 @@ inline void XT_log_tmp_ld(TCGContext *s,
                     fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
                     break;
             }
+        }
+            break;
+        default:
+            fprintf(stderr, "unknown tmp type: %d\n", ts->val_type);
+            assert(1 == 0);
+            break;
+    }
+}
+
+inline void XT_log_tmp_st(TCGContext *s,
+                          TCGArg *args,
+                          TCGTemp *ts,
+                          TCGTemp *ots,
+                          uint8_t flag){
+    switch(ts->val_type){
+        case TEMP_VAL_DEAD:
+            fprintf(stderr, "tmp is dead\n");
+            assert(1 == 0);
+            break;
+        case TEMP_VAL_MEM:
+        {
+            tcg_out_pushi(s, flag);
+            // log mem addr: ots contains an addr, load it
+            switch(ots->val_type){
+                case TEMP_VAL_DEAD:
+                    break;
+                case TEMP_VAL_MEM:{
+                    tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                               ots->mem_reg, ots->mem_offset);
+                    tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                }
+                    break;
+                case TEMP_VAL_REG:
+                    tcg_out_push(s, ots->reg);
+                    break;
+                case TEMP_VAL_CONST:
+                    tcg_out_pushi(s, ots->val);
+                    break;
+                default:
+                    fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
+                    break;
+            }
+
+            // log val
+            tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0],
+                       ts->mem_reg, ts->mem_offset);
+            tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+        }
+            break;
+        case TEMP_VAL_REG:
+        {
+            tcg_out_pushi(s, flag);
+            // log mem addr: ots contains an addr, load it
+            switch(ots->val_type){
+                case TEMP_VAL_DEAD:
+                    break;
+                case TEMP_VAL_MEM:{
+                    tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                               ots->mem_reg, ots->mem_offset);
+                    tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                }
+                    break;
+                case TEMP_VAL_REG:
+                    tcg_out_push(s, ots->reg);
+                    break;
+                case TEMP_VAL_CONST:
+                    tcg_out_pushi(s, ots->val);
+                    break;
+                default:
+                    fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
+                    break;
+            }
+            // log val
+            tcg_out_push(s, ts->reg);
+        }
+            break;
+        case TEMP_VAL_CONST:
+        {
+            tcg_out_pushi(s, flag);
+            // log mem addr: ots contains an addr, load it
+            switch(ots->val_type){
+                case TEMP_VAL_DEAD:
+                    break;
+                case TEMP_VAL_MEM:{
+                    tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                               ots->mem_reg, ots->mem_offset);
+                    tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                }
+                    break;
+                case TEMP_VAL_REG:
+                    tcg_out_push(s, ots->reg);
+                    break;
+                case TEMP_VAL_CONST:
+                    tcg_out_pushi(s, ots->val);
+                    break;
+                default:
+                    fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
+                    break;
+            }
+            // log val
+            tcg_out_pushi(s, ts->val);
+
         }
             break;
         default:

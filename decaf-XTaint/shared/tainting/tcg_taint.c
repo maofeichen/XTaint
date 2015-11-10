@@ -576,16 +576,16 @@ static inline int gen_taintcheck_insn(int search_pc)
             } else
               /* Patch in opcode to load taint from tempidx */
               tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
-          } else
+          } else{
             /* Patch in opcode to load taint from tempidx */
             tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
 #ifdef CONFIG_TCG_XTAINT
-          if(xt_enable_log_ir){
-              xt_flag = 0;
-              xt_flag += XT_LD;
-              XT_log_ir(arg0, orig1, orig0, xt_flag);
-          }
+            if (xt_enable_log_ir) {
+                xt_flag = XT_LD;
+                XT_log_ir(arg0, orig1, orig0, xt_flag);
+            }
 #endif /* CONFIG_TCG_XTAINT */
+          }
         }
         break;
 
@@ -737,8 +737,15 @@ static inline int gen_taintcheck_insn(int search_pc)
 
               } else
                 tcg_gen_st32_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
-            } else
+            } else{
               tcg_gen_st32_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+#ifdef CONFIG_TCG_XTAINT
+              if(xt_enable_log_ir){
+                  xt_flag = XT_ST;
+                  XT_log_ir(arg0, ret, addr, xt_flag);
+              }
+#endif /* CONFIG_TCG_XTAINT */
+            }
 
             /* Insert the taint_qemu_st* IR */
             gen_opc_ptr++;
