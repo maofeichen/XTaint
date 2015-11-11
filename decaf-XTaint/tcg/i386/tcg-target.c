@@ -2088,6 +2088,7 @@ inline void XT_log_tmp(TCGContext *s,
             // log addr
 //            tcg_out_pushi(s, tmp->mem_offset);
             tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
+            // should be add or sub?
             tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset);
             tcg_out_push(s, tcg_target_call_iarg_regs[0]);
 
