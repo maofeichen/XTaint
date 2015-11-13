@@ -1229,6 +1229,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 #ifdef TAINT_EXPENSIVE_ADDSUB
  // AWH - expensiveAddSub() for add_i32/or_i32 are buggy, use cheap one
       /* T0 = (T1 | T2) | ((V1_min + V2_min) ^ (V1_max + V2_max)) */
+      // mchen: this is the real case that will be used
       case INDEX_op_add_i32: // Special - expensiveAddSub()
         arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
         if (arg0) {
@@ -1282,6 +1283,15 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_or_i32(arg0, t0, t1); // arg0 = (qa | qb) | ( (a_min + b_min) ^ (a_max + b_max)
           //put the original operation back
           tcg_gen_add_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(orig0 != orig1) // if dest is not equal to 1st src
+//                  XT_log_ir(arg1, orig1, orig0, xt_flag);
+//              if(orig0 != orig2) // if dest is not equal to 2nd src
+//                  XT_log_ir(arg2, orig2, orig0, xt_flag);
+//          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
       /* T0 = (T1 | T2) | ((V1_min - V2_max) ^ (V1_max - V2_min)) */
@@ -1454,6 +1464,18 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           /* Reinsert original opcode */
           tcg_gen_and_i32(orig2, orig1, orig0);
+#ifdef CONFIG_TCG_XTAINT
+          // mchen: confused tmp name
+          // dest: orig2 1st src: orig1, 2nd src orig0
+          // dest shadow: arg0 1st src sha: arg1, 2nd src shad: arg2
+          if (xt_enable_log_ir) {
+              xt_flag = 0;
+              if(orig2 != orig1) // if dest is not equal to 1st src
+                  XT_log_ir(arg1, orig1, orig2, xt_flag);
+              if(orig2 != orig0) // if dest is not equal to 2nd src
+                  XT_log_ir(arg2, orig0, orig2, xt_flag);
+          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
