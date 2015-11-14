@@ -1025,6 +1025,17 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, t2);
           /* Reinsert original opcode */
           tcg_gen_shl_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          // dest: orig0, 1st src: orig1, 2nd src: orig2 (shift amount?)
+          // dest shadow: arg0, 1st src sha: arg1, 2nd src shad: arg2
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(arg1)
+//                  XT_log_ir(arg1, orig1, orig0, xt_flag);
+//              if(arg2)
+//                  XT_log_ir(arg2, orig2, orig0, xt_flag);
+//          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
@@ -1547,13 +1558,13 @@ static inline int gen_taintcheck_insn(int search_pc)
           // mchen: confused tmp name
           // dest: orig2 1st src: orig1, 2nd src orig0
           // dest shadow: arg0 1st src sha: arg1, 2nd src shad: arg2
-          if (xt_enable_log_ir) {
-              xt_flag = 0;
-              if(orig2 != orig1) // if dest is not equal to 1st src
-                  XT_log_ir(arg1, orig1, orig2, xt_flag);
-              if(orig2 != orig0) // if dest is not equal to 2nd src
-                  XT_log_ir(arg2, orig0, orig2, xt_flag);
-          }
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(orig2 != orig1) // if dest is not equal to 1st src
+//                  XT_log_ir(arg1, orig1, orig2, xt_flag);
+//              if(orig2 != orig0) // if dest is not equal to 2nd src
+//                  XT_log_ir(arg2, orig0, orig2, xt_flag);
+//          }
 #endif /* CONFIG_TCG_XTAINT */
         }
         break;
@@ -1713,6 +1724,17 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, arg2);
           else
             tcg_gen_movi_i32(arg0, 0);
+#ifdef CONFIG_TCG_XTAINT
+          // dest: orig0, 1st src: orig1, 2nd src orig2
+          // dest shadow: arg0, 1st src sha: arg1, 2nd src shad: arg2
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(orig0 != orig1) // if dest is not equal to 1st src
+//                  XT_log_ir(arg1, orig1, orig0, xt_flag);
+//              if(orig0 != orig2) // if dest is not equal to 2nd src
+//                  XT_log_ir(arg2, orig2, orig0, xt_flag);
+//          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
@@ -1903,6 +1925,15 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+#ifdef CONFIG_TCG_XTAINT
+          // mchen: no need to instrument because one operand
+          // same as neg_i32
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(arg1)
+//                  XT_log_ir(arg1, orig1, orig0, xt_flag);
+//          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_not_i32 */
