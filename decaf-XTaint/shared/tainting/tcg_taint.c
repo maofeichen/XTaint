@@ -1085,6 +1085,17 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_mov_i32(arg0, t2);
           /* Reinsert original opcode */
           tcg_gen_shr_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          // dest: orig0, 1st src: orig1, 2nd src: orig2 (shift amount?)
+          // dest shadow: arg0, 1st src sha: arg1, 2nd src shad: arg2
+          if (xt_enable_log_ir) {
+              xt_flag = 0;
+              if(arg1)
+                  XT_log_ir(arg1, orig1, orig0, xt_flag);
+              if(arg2)
+                  XT_log_ir(arg2, orig2, orig0, xt_flag);
+          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
