@@ -1414,15 +1414,15 @@ static inline int gen_taintcheck_insn(int search_pc)
 #ifdef CONFIG_TCG_XTAINT
           // dst: orig0, src1: orig1, src2: orig2
           // dst shadow: arg0, src1 sha: arg1, src2 sha: arg2
-          if (xt_enable_log_ir) {
-              xt_flag = 0;
-              if(orig0 != orig1) // if dest is not equal to 1st src
-                  if(arg1)
-                      XT_log_ir(arg1, orig1, orig0, xt_flag);
-              if(orig0 != orig2) // if dest is not equal to 2nd src
-                  if(arg2)
-                      XT_log_ir(arg2, orig2, orig0, xt_flag);
-          }
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(orig0 != orig1) // if dest is not equal to 1st src
+//                  if(arg1)
+//                      XT_log_ir(arg1, orig1, orig0, xt_flag);
+//              if(orig0 != orig2) // if dest is not equal to 2nd src
+//                  if(arg2)
+//                      XT_log_ir(arg2, orig2, orig0, xt_flag);
+//          }
 #endif /* CONFIG_TCG_XTAINT */
         }
         break;
@@ -1468,6 +1468,19 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_or_i32(arg0, t0, t1); // (s32 | (-s32)) -> vLo32
           /* Reinsert original opcode */
           tcg_gen_mul_i32(orig0, orig1, orig2);
+#ifdef CONFIG_TCG_XTAINT
+          // dst: orig0, src1: orig1, src2: orig2
+          // dst shadow: arg0, src1 sha: arg1, src2 sha: arg2
+          if (xt_enable_log_ir) {
+              xt_flag = 0;
+              if(orig0 != orig1) // if dest is not equal to 1st src
+                  if(arg1)
+                      XT_log_ir(arg1, orig1, orig0, xt_flag);
+              if(orig0 != orig2) // if dest is not equal to 2nd src
+                  if(arg2)
+                      XT_log_ir(arg2, orig2, orig0, xt_flag);
+          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
