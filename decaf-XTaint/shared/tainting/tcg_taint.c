@@ -1882,6 +1882,14 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_ext8s_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+#ifdef CONFIG_TCG_XTAINT
+          // mchen: src and dst are same
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(arg1)
+//                  XT_log_ir(arg1, orig1, orig0, xt_flag);
+//          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_ext8s_i32 */
@@ -1896,6 +1904,14 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_ext16s_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+#ifdef CONFIG_TCG_XTAINT
+          // mchen: src and dst are same
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(arg1)
+//                  XT_log_ir(arg1, orig1, orig0, xt_flag);
+//          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_ext16s_i32 */
@@ -1911,6 +1927,14 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_ext8u_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+#ifdef CONFIG_TCG_XTAINT
+          // mchen: src and dst are same
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(arg1)
+//                  XT_log_ir(arg1, orig1, orig0, xt_flag);
+//          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_ext8u_i32 */
@@ -1926,6 +1950,14 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_ext16u_i32(arg0, arg1);
           else
             tcg_gen_movi_i32(arg0, 0);
+#ifdef CONFIG_TCG_XTAINT
+          // mchen: src and dst are same
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(arg1)
+//                  XT_log_ir(arg1, orig1, orig0, xt_flag);
+//          }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 #endif /* TCG_TARGET_HAS_ext16u_i32 */
