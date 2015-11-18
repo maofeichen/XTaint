@@ -15,6 +15,7 @@ static DECAF_Handle mem_write_handle = DECAF_NULL_HANDLE;
 static uint32_t taint_addr = 0;
 static uint32_t taint_sz = 0;
 static uint8_t taint_pattern = 0;
+static uint32_t offset = 0;
 
 void do_pass_taint_arg(Monitor *mon, const QDict *qdict)
 {
@@ -39,12 +40,14 @@ void do_taint_memory(uint32_t addr, uint32_t sz, uint8_t pattern){
 
 	if(sz != 0){
 		memset(taint_source, pattern, sz);
-		begin_addr = addr - 28;
-//		if (taintcheck_taint_virtmem(addr, sz, taint_source) != 0) {
+		begin_addr = addr - offset;
 		if (taintcheck_taint_virtmem(begin_addr, sz, taint_source) != 0) {
 			DECAF_printf("Fail to taint guest OS memory!\n");
 		} else {
 			DECAF_printf("Sucessfully to taint guest OS memory!\n");
+			taint_addr = 0;
+			taint_sz = 0;
+			taint_pattern = 0;
 		}
 	}
 }

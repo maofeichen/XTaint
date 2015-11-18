@@ -25,7 +25,7 @@ all: taint_virtual_mem.so
 
 taint_virtual_mem.so: $(OBJS)
 	$(CPP) $(LDFLAGS) $^ -o $@ $(LIBS)
-	ar cru libtaint_memory.a $@
+	ar cru libtaint_vir_mem.a $@
 
 apitracer-static.so: $(OBJS)
 	$(CPP) -static-libgcc -Wl,-static $(LDFLAGS) $^ -o $@ $(LIBS)
