@@ -72,20 +72,24 @@ void do_pass_taint_arg(Monitor *mon, const QDict *qdict)
     return (0);
   }
 
-  /*
-   * This function is invoked when the plugin is unloaded.
-   */
-  static void my_cleanup(void)
-  {
+/*
+ * This function is invoked when the plugin is unloaded.
+ */
+static void my_cleanup(void) {
     DECAF_printf("Bye world\n");
     /*
      * Unregister for the process start and exit callbacks.
      */
-    if (processbegin_handle != DECAF_NULL_HANDLE) {
-      VMI_unregister_callback(VMI_CREATEPROC_CB, processbegin_handle);
-      processbegin_handle = DECAF_NULL_HANDLE;
+//    if (processbegin_handle != DECAF_NULL_HANDLE) {
+//        VMI_unregister_callback(VMI_CREATEPROC_CB, processbegin_handle);
+//        processbegin_handle = DECAF_NULL_HANDLE;
+//    }
+    if (mem_write_handle != DECAF_NULL_HANDLE) {
+        DECAF_unregister_callback(DECAF_MEM_WRITE_CB, mem_write_handle);
+        processbegin_handle = DECAF_NULL_HANDLE;
     }
-    }
+}
+
 /*
 * Commands supported by the plugin. Included in plugin_cmds.h
 */
