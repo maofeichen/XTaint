@@ -28,8 +28,10 @@
 #define X_DEBUG 0x80
 
 extern int xt_enable_log_ir;
-
 extern int xt_do_log_ir(Monitor *mon, const QDict *qdict, QObject **ret_data);
+
+extern int xt_enable_debug;
+extern int xt_do_debug(Monitor *mon, const QDict *qdict, QObject **ret_data);
 
 extern void XT_write_tmp();
 #endif /* CONFIG_TCG_XTAINT */

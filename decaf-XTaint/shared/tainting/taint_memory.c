@@ -35,6 +35,7 @@ const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1;
 
 #ifdef CONFIG_TCG_XTAINT
 int xt_enable_log_ir = 0;
+int xt_enable_debug = 0;
 
 uint8_t xt_pool[XT_MAX_POOL_SIZE];
 uint8_t *xt_ptr_curr_record = xt_pool;
@@ -557,6 +558,22 @@ int xt_do_log_ir(Monitor *mon, const QDict *qdict, QObject **ret_data){
         tb_flush(env);
         monitor_printf(default_mon, "log ir changed -> %s\n",
                 xt_enable_log_ir ? "ON " : "OFF");
+    }
+    return 0;
+}
+
+int xt_do_debug(Monitor *mon, const QDict *qdict, QObject **ret_data){
+    if (!taint_tracking_enabled)
+        monitor_printf(default_mon, "Ignored, taint tracking is disabled\n");
+    else {
+        CPUState *env;
+        DECAF_stop_vm();
+        env = cpu_single_env ? cpu_single_env : first_cpu;
+        xt_enable_debug = qdict_get_bool(qdict, "load");
+        DECAF_start_vm();
+        tb_flush(env);
+        monitor_printf(default_mon, "xt debug changed -> %s\n",
+                xt_enable_debug ? "ON " : "OFF");
     }
     return 0;
 }
