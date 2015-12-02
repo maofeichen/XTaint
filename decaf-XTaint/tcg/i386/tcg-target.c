@@ -2347,6 +2347,8 @@ inline void XT_log_tmp_st(TCGContext *s,
             break;
     }
 }
+
+static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){}
 #endif /* CONFIG_TCG_XTAINT */
 
 static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,

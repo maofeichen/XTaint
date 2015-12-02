@@ -287,6 +287,9 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_brcond2_i32:
 #endif /* TCG_TARGET_REG_BITS */
       case INDEX_op_brcond_i64:
+#ifdef CONFIG_TCG_XTAINT
+      case INDEX_op_XT_mark:
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
       case INDEX_op_discard:   // Remove associated shadow reg
@@ -1341,15 +1344,15 @@ static inline int gen_taintcheck_insn(int search_pc)
           //put the original operation back
           tcg_gen_add_i32(orig0, orig1, orig2);
 #ifdef CONFIG_TCG_XTAINT
-          if (xt_enable_log_ir) {
-              xt_flag = 0;
-              if(orig0 != orig1) // if dest is not equal to 1st src
-                  if(arg1)
-                      XT_log_ir(arg1, orig1, orig0, xt_flag);
-              if(orig0 != orig2) // if dest is not equal to 2nd src
-                  if(arg2)
-                      XT_log_ir(arg2, orig2, orig0, xt_flag);
-          }
+//          if (xt_enable_log_ir) {
+//              xt_flag = 0;
+//              if(orig0 != orig1) // if dest is not equal to 1st src
+//                  if(arg1)
+//                      XT_log_ir(arg1, orig1, orig0, xt_flag);
+//              if(orig0 != orig2) // if dest is not equal to 2nd src
+//                  if(arg2)
+//                      XT_log_ir(arg2, orig2, orig0, xt_flag);
+//          }
 #endif /* CONFIG_TCG_XTAINT */
         }
         break;

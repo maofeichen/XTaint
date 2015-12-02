@@ -2384,6 +2384,13 @@ static inline void tcg_gen_XT_log_ir(TCGv src_shadow,
 {
     tcg_gen_op4_i32(INDEX_op_XT_log_ir, src_shadow, src, dest, flag);
 }
+
+static inline void tcg_gen_XT_mark(tcg_target_long flag, \
+                                   tcg_target_long val1, \
+                                   tcg_target_long val2)
+{
+    tcg_gen_op3i_i32(INDEX_op_XT_mark, flag, val1, val2);
+}
 #endif /* CINFIG_TCG_XTAINT */
 
 #if TCG_TARGET_REG_BITS == 32
