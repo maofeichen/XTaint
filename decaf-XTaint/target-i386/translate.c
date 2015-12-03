@@ -4270,7 +4270,8 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 #ifdef CONFIG_TCG_XTAINT
     // debug mode: log addr of each guest insn
     if(xt_enable_debug)
-        gen_op_XT_mark(XT_INSN_ADDR, s->pc, 0);
+        if(s->pc < 0xc0000000) // only for user space
+            gen_op_XT_mark(XT_INSN_ADDR, s->pc, 0);
 #endif /* CONFIG_TCG_XTAINT */
     s->pc++;
     /* check prefixes */

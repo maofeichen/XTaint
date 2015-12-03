@@ -45,38 +45,33 @@ FILE *xt_log = NULL;
 
 void xt_flush_file(FILE *xt_log) {
     uint8_t *i_ptr = xt_pool;
-    uint8_t *mark_ptr;
 
     while (i_ptr < xt_ptr_curr_record) {
-        mark_ptr = i_ptr;
-        if(*mark_ptr == XT_INSN_ADDR)
-            goto xt_mark;
+        if(*i_ptr == XT_INSN_ADDR){
+            fprintf(xt_log, "%x\t", *i_ptr++);              // flag
+            fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);   // 1st arg
+            i_ptr += 4;
+            fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);   // 2nd arg
+            i_ptr += 4;
 
-        fprintf(xt_log, "%x\t", *i_ptr++);   // src_flag
-        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_addr
-        i_ptr += 4;
-        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_val
-        i_ptr += 4;
+            fprintf(xt_log, "\n");
+        }else {
+            fprintf(xt_log, "%x\t", *i_ptr++);   // src_flag
+            fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_addr
+            i_ptr += 4;
+            fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_val
+            i_ptr += 4;
 
-        fprintf(xt_log, "%x\t", *i_ptr++);   // des_flag
-        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // des_addr
-        i_ptr += 4;
-        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // des_val
-        i_ptr += 4;
+            fprintf(xt_log, "%x\t", *i_ptr++);   // des_flag
+            fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // des_addr
+            i_ptr += 4;
+            fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // des_val
+            i_ptr += 4;
 
-        fprintf(xt_log, "\n");
-        continue;
-
-xt_mark:
-        fprintf(xt_log, "%x\t", *i_ptr++);              // flag
-        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);   // 1st arg
-        i_ptr += 4;
-        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);   // 2nd arg
-        i_ptr += 4;
-
-        fprintf(xt_log, "\n");
+            fprintf(xt_log, "\n");
+        }
     }
-    fprintf(xt_log, "\n");
+//    fprintf(xt_log, "\n");
 }
 #endif /* CONFIG_TCG_XTAINT */
 
