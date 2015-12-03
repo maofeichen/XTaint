@@ -45,26 +45,18 @@ FILE *xt_log = NULL;
 
 void xt_flush_file(FILE *xt_log) {
     uint8_t *i_ptr = xt_pool;
-    uint8_t *func_mark_ptr;
+    uint8_t *mark_ptr;
 
     while (i_ptr < xt_ptr_curr_record) {
-//        func_mark_ptr = i_ptr;
-//        if(*func_mark_ptr == X_CALL_MARK \
-//                || *func_mark_ptr == X_RET_MARK\
-//                || *func_mark_ptr == X_SIZE_BEGIN\
-//                || *func_mark_ptr == X_SIZE_END)
-//            goto func_mark;
+        mark_ptr = i_ptr;
+        if(*mark_ptr == XT_INSN_ADDR)
+            goto xt_mark;
 
         fprintf(xt_log, "%x\t", *i_ptr++);   // src_flag
         fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_addr
         i_ptr += 4;
         fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_val
         i_ptr += 4;
-
-//        func_mark_ptr = i_ptr;
-        // if function mark, print newline
-//        if(*func_mark_ptr == X_CALL_MARK || *func_mark_ptr == X_RET_MARK )
-//            goto func_mark;
 
         fprintf(xt_log, "%x\t", *i_ptr++);   // des_flag
         fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // des_addr
@@ -75,11 +67,11 @@ void xt_flush_file(FILE *xt_log) {
         fprintf(xt_log, "\n");
         continue;
 
-func_mark:
-        fprintf(xt_log, "%x\t", *i_ptr++);   // src_flag
-        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_addr
+xt_mark:
+        fprintf(xt_log, "%x\t", *i_ptr++);              // flag
+        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);   // 1st arg
         i_ptr += 4;
-        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);    // src_val
+        fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);   // 2nd arg
         i_ptr += 4;
 
         fprintf(xt_log, "\n");
@@ -539,6 +531,36 @@ void XT_write_tmp(){
 
     xt_curr_pool_sz -= 18;
 
+    if (xt_curr_pool_sz < XT_POOL_THRESHOLD) {
+        xt_flush_file(xt_log);
+        xt_ptr_curr_record = xt_pool;
+        xt_curr_pool_sz = XT_MAX_POOL_SIZE;
+    }
+}
+
+void XT_write_mark(){
+    register int ebp asm("ebp");
+    uint8_t offset_ebp = 0x18;  // first value addr relative to ebp
+    uint8_t sz = 0x4;           // size of next value
+
+    uint32_t *val1, *val2;
+    uint8_t *flag;
+
+    // log first value: flag
+    flag = (uint8_t *) (ebp + offset_ebp);
+    *xt_ptr_curr_record++ = *flag;
+
+    val1 = (uint32_t *) (ebp + offset_ebp + sz);
+    *(uint32_t *) xt_ptr_curr_record = *val1;
+    xt_ptr_curr_record += sz;
+
+    // log 3rd value
+    // the format of record is <flag, addr, val>, but no value here, use 0
+    val2 = (uint32_t *) (ebp + offset_ebp + 2 * sz);
+    *(uint32_t *) xt_ptr_curr_record = *val2;
+    xt_ptr_curr_record += sz;
+
+    xt_curr_pool_sz -= 9;            // update the pool avaiable size
     if (xt_curr_pool_sz < XT_POOL_THRESHOLD) {
         xt_flush_file(xt_log);
         xt_ptr_curr_record = xt_pool;

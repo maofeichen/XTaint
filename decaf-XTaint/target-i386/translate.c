@@ -38,6 +38,10 @@
 #include "shared/tainting/tcg_taint.h"
 #endif /* CONFIG_TCG_TAINT */
 
+#ifdef CONFIG_TCG_XTAINT
+#include "shared/xtaint/XT_log_ir.h"
+#endif // CONFIG_TCG_XTAINT
+
 #define PREFIX_REPZ   0x01
 #define PREFIX_REPNZ  0x02
 #define PREFIX_LOCK   0x04
@@ -230,6 +234,15 @@ static inline void tcg_gen_call_cb_0(void *func)
 	tcg_gen_helperN(func, 0, sizemask, dh_retvar(void), 0, NULL);
 }
 //DECAF: END
+
+#ifdef CONFIG_TCG_XTAINT
+static inline void gen_op_XT_mark(uint32_t flag, \
+                                  target_ulong val1, \
+                                  target_ulong val2)
+{
+    tcg_gen_XT_mark(flag, val1, val2);
+}
+#endif // CONFIG_TCG_XTAINT
 
 static inline void gen_op_movl_T0_0(void)
 {
@@ -4254,6 +4267,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
  next_byte:
     cur_opcode = b = ldub_code(s->pc);
+#ifdef CONFIG_TCG_XTAINT
+    // debug mode: log addr of each guest insn
+    if(xt_enable_debug)
+        gen_op_XT_mark(XT_INSN_ADDR, s->pc, 0);
+#endif /* CONFIG_TCG_XTAINT */
     s->pc++;
     /* check prefixes */
 #ifdef TARGET_X86_64

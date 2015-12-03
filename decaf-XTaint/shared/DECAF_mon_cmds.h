@@ -131,6 +131,13 @@ http://code.google.com/p/decaf-platform/
         .help       = "Turn on/off xtaint log ir",
         .mhandler.cmd_new = xt_do_log_ir,
 },
+{
+        .name       = "xtaint_debug",
+        .args_type  = "load:b",
+        .params     = "on|off",
+        .help       = "Turn on/off xtaint debug mode",
+        .mhandler.cmd_new = xt_do_debug,
+},
 #endif /* CONFIG_TCG_XTAINT */
 #endif /* CONFIG_TCG_TAINT */
 

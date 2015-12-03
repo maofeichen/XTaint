@@ -2348,7 +2348,39 @@ inline void XT_log_tmp_st(TCGContext *s,
     }
 }
 
-static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){}
+static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
+    if(args[0] == XT_INSN_CALL || \
+       args[0] == XT_INSN_RET || \
+       args[0] == XT_SIZE_BEGIN || \
+       args[0] == XT_SIZE_END || \
+       args[0] == XT_INSN_ADDR){
+        tcg_out_pushi(s, args[2]);  // push 3rd arg
+        tcg_out_pushi(s, args[1]);  // push 2nd arg
+        tcg_out_pushi(s, args[0]);  // push 1st arg
+    } else{
+        fprintf(stderr, "Unknown Mark, abort\n");
+        tcg_abort();
+    }
+
+    tcg_out_push(s, TCG_REG_EAX);
+    tcg_out_push(s, TCG_REG_EBX);
+    tcg_out_push(s, TCG_REG_ECX);
+    tcg_out_push(s, TCG_REG_EDX);
+    tcg_out_calli(s, (tcg_target_long)XT_write_mark);
+    tcg_out_pop(s, TCG_REG_EDX);
+    tcg_out_pop(s, TCG_REG_ECX);
+    tcg_out_pop(s, TCG_REG_EBX);
+    tcg_out_pop(s, TCG_REG_EAX);
+
+    // restore stack
+    if(args[0] == XT_INSN_CALL || \
+           args[0] == XT_INSN_RET || \
+           args[0] == XT_SIZE_BEGIN || \
+           args[0] == XT_SIZE_END || \
+           args[0] == XT_INSN_ADDR){
+        tcg_out_addi(s, TCG_REG_ESP, 0xc);
+    }
+}
 #endif /* CONFIG_TCG_XTAINT */
 
 static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
