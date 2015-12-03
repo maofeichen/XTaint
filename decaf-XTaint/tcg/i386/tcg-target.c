@@ -1971,11 +1971,17 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                              label_src_shadow_tainted,
                              small);
             if(flag == XT_LD){
-                flag -= XT_LD;
+                if(xt_encode_tcg_ir)
+                    flag = TCG_QEMU_LD;
+                else
+                    flag = 0;
                 XT_log_tmp_ld(s, args, ts, ots, flag);
                 XT_log_tmp(s, args, ots, flag);
             }else if(flag == XT_ST){
-                flag -= XT_ST;
+                if(xt_encode_tcg_ir)
+                    flag = TCG_QEMU_ST;
+                else
+                    flag = 0;
                 XT_log_tmp(s, args, ts, flag);
                 XT_log_tmp_st(s, args, ts, ots, flag);
             }else{
@@ -2005,11 +2011,17 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                              small);
 
             if(flag == XT_LD){
-                flag -= XT_LD;
+                if(xt_encode_tcg_ir)
+                    flag = TCG_QEMU_LD;
+                else
+                    flag = 0;
                 XT_log_tmp_ld(s, args, ts, ots, flag);
                 XT_log_tmp(s, args, ots, flag);
             }else if(flag == XT_ST){
-                flag -= XT_ST;
+                if(xt_encode_tcg_ir)
+                    flag = TCG_QEMU_ST;
+                else
+                    flag = 0;
                 XT_log_tmp(s, args, ts, flag);
                 XT_log_tmp_st(s, args, ts, ots, flag);
             }else{
@@ -2031,11 +2043,17 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
         {
             if(ts_shadow->val != 0){
                 if(flag == XT_LD){
-                    flag -= XT_LD;
+                    if(xt_encode_tcg_ir)
+                        flag = TCG_QEMU_LD;
+                    else
+                        flag = 0;
                     XT_log_tmp_ld(s, args, ts, ots, flag);
                     XT_log_tmp(s, args, ots, flag);
                 }else if(flag == XT_ST){
-                    flag -= XT_ST;
+                    if(xt_encode_tcg_ir)
+                        flag = TCG_QEMU_ST;
+                    else
+                        flag = 0;
                     XT_log_tmp(s, args, ts, flag);
                     XT_log_tmp_st(s, args, ts, ots, flag);
                 }else{

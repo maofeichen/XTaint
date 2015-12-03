@@ -36,6 +36,7 @@ const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1;
 #ifdef CONFIG_TCG_XTAINT
 int xt_enable_log_ir = 0;
 int xt_enable_debug = 0;
+int xt_encode_tcg_ir = 1;
 
 uint8_t xt_pool[XT_MAX_POOL_SIZE];
 uint8_t *xt_ptr_curr_record = xt_pool;

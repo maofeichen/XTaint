@@ -488,7 +488,10 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_mov_i32(orig0, orig1);
 #ifdef CONFIG_TCG_XTAINT
           if(xt_enable_log_ir){
-              xt_flag = 0;
+              if(xt_encode_tcg_ir)
+                  xt_flag = TCG_MOV;
+              else
+                  xt_flag = 0;
               XT_log_ir(arg1, orig1, orig0, xt_flag);
           }
 #endif /* CONFIG_TCG_XTAINT */

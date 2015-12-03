@@ -26,13 +26,19 @@
 #define XT_SIZE_BEGIN 0x20
 #define XT_SIZE_END 0x24
 #define XT_INSN_ADDR 0x32
-#define XT_DEBUG 0x80
+
+#define TCG_MOV 0x33
+#define TCG_QEMU_LD 0x34
+#define TCG_QEMU_ST 0x35
+
 
 extern int xt_enable_log_ir;
 extern int xt_do_log_ir(Monitor *mon, const QDict *qdict, QObject **ret_data);
 
 extern int xt_enable_debug;
 extern int xt_do_debug(Monitor *mon, const QDict *qdict, QObject **ret_data);
+
+extern int xt_encode_tcg_ir;
 
 extern void XT_write_tmp();
 extern void XT_write_mark();
