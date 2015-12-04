@@ -48,7 +48,8 @@ void xt_flush_file(FILE *xt_log) {
     uint8_t *i_ptr = xt_pool;
 
     while (i_ptr < xt_ptr_curr_record) {
-        if(*i_ptr == XT_INSN_ADDR){
+        if(*i_ptr == XT_INSN_ADDR || \
+           *i_ptr == XT_TCG_DEPOSIT){
             fprintf(xt_log, "%x\t", *i_ptr++);              // flag
             fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);   // 1st arg
             i_ptr += 4;

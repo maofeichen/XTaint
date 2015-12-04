@@ -2371,7 +2371,8 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
        args[0] == XT_INSN_RET || \
        args[0] == XT_SIZE_BEGIN || \
        args[0] == XT_SIZE_END || \
-       args[0] == XT_INSN_ADDR){
+       args[0] == XT_INSN_ADDR ||\
+       args[0] == XT_TCG_DEPOSIT){
         tcg_out_pushi(s, args[2]);  // push 3rd arg
         tcg_out_pushi(s, args[1]);  // push 2nd arg
         tcg_out_pushi(s, args[0]);  // push 1st arg
@@ -2395,7 +2396,8 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
            args[0] == XT_INSN_RET || \
            args[0] == XT_SIZE_BEGIN || \
            args[0] == XT_SIZE_END || \
-           args[0] == XT_INSN_ADDR){
+           args[0] == XT_INSN_ADDR || \
+           args[0] == XT_TCG_DEPOSIT){
         tcg_out_addi(s, TCG_REG_ESP, 0xc);
     }
 }
