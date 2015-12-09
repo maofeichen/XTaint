@@ -32,6 +32,7 @@
 // mchen
 #ifdef CONFIG_TCG_XTAINT
 #include "xtaint/XT_log_ir.h"
+#include "target-i386/cpu.h"
 #endif /* CONFGI_TCG_XTAINT */
 
 #endif /* CONFIG_TCG_XTAINT */
@@ -1932,8 +1933,12 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
  */
 static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
     TCGTemp *ts_shadow, *ts, *ots;
+    int ts_idx, ots_idx;
+
     ts_shadow = &s->temps[args[0]];
     ts = &s->temps[args[1]];
+    ts_idx = args[1];
+    ots_idx = args[2];
     ots = &s->temps[args[2]];
     uint8_t flag = args[3];
 
@@ -1976,17 +1981,17 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                 else
                     flag = 0;
                 XT_log_tmp_ld(s, args, ts, ots, flag);
-                XT_log_tmp(s, args, ots, flag);
+                XT_log_tmp(s, args, ots, flag, ots_idx);
             }else if(flag == XT_ST){
                 if(xt_encode_tcg_ir)
                     flag = TCG_QEMU_ST;
                 else
                     flag = 0;
-                XT_log_tmp(s, args, ts, flag);
+                XT_log_tmp(s, args, ts, flag, ts_idx);
                 XT_log_tmp_st(s, args, ts, ots, flag);
             }else{
-                XT_log_tmp(s, args, ts, flag);
-                XT_log_tmp(s, args, ots, flag);
+                XT_log_tmp(s, args, ts, flag, ts_idx);
+                XT_log_tmp(s, args, ots, flag, ots_idx);
             }
 
             tcg_out_push(s, TCG_REG_ECX);
@@ -2016,17 +2021,17 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                 else
                     flag = 0;
                 XT_log_tmp_ld(s, args, ts, ots, flag);
-                XT_log_tmp(s, args, ots, flag);
+                XT_log_tmp(s, args, ots, flag, ots_idx);
             }else if(flag == XT_ST){
                 if(xt_encode_tcg_ir)
                     flag = TCG_QEMU_ST;
                 else
                     flag = 0;
-                XT_log_tmp(s, args, ts, flag);
+                XT_log_tmp(s, args, ts, flag, ts_idx);
                 XT_log_tmp_st(s, args, ts, ots, flag);
             }else{
-                XT_log_tmp(s, args, ts, flag);
-                XT_log_tmp(s, args, ots, flag);
+                XT_log_tmp(s, args, ts, flag, ts_idx);
+                XT_log_tmp(s, args, ots, flag, ots_idx);
             }
 
             tcg_out_push(s, TCG_REG_ECX);
@@ -2048,17 +2053,17 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                     else
                         flag = 0;
                     XT_log_tmp_ld(s, args, ts, ots, flag);
-                    XT_log_tmp(s, args, ots, flag);
+                    XT_log_tmp(s, args, ots, flag, ots_idx);
                 }else if(flag == XT_ST){
                     if(xt_encode_tcg_ir)
                         flag = TCG_QEMU_ST;
                     else
                         flag = 0;
-                    XT_log_tmp(s, args, ts, flag);
+                    XT_log_tmp(s, args, ts, flag, ts_idx);
                     XT_log_tmp_st(s, args, ts, ots, flag);
                 }else{
-                    XT_log_tmp(s, args, ts, flag);
-                    XT_log_tmp(s, args, ots, flag);
+                    XT_log_tmp(s, args, ts, flag, ts_idx);
+                    XT_log_tmp(s, args, ots, flag, ots_idx);
                 }
 
                 tcg_out_push(s, TCG_REG_ECX);
@@ -2085,7 +2090,9 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
 inline void XT_log_tmp(TCGContext *s,
                        TCGArg *args,
                        TCGTemp *tmp,
-                       uint8_t flag){
+                       uint8_t flag,
+                       int tmp_idx){
+    int reg_idx = -1;
     switch(tmp->val_type){
         case TEMP_VAL_DEAD:
             fprintf(stderr, "tmp is deal\n");
@@ -2093,22 +2100,30 @@ inline void XT_log_tmp(TCGContext *s,
             break;
         case TEMP_VAL_MEM:
         {
-//            if(tmp->mem_reg == 4)
-//                flag += XT_BASE_ESP;
-//            else if(tmp->mem_reg == 5)
-//                flag += XT_BASE_EBP;
-//            else{
-//                fprintf(stderr, "base reg is neither esp nor ebp: %x\n", tmp->mem_reg);
-//                assert(1 == 0);
-//            }
+            // if(tmp->mem_reg == 4)
+            //     flag += XT_BASE_ESP;
+            // else if(tmp->mem_reg == 5)
+            //     flag += XT_BASE_EBP;
+            // else{
+            //     fprintf(stderr, "base reg is neither esp nor ebp: %x\n", tmp->mem_reg);
+            //     assert(1 == 0);
+            // }
             tcg_out_pushi(s, flag);
 
             // log addr
-//            tcg_out_pushi(s, tmp->mem_offset);
-            tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
-            // should be add or sub?
-            tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset);
-            tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//            if(tmp_idx < s->nb_globals &&
+//               (reg_idx = get_global_temp_reg_idx(s, tmp) ) != -1 ){ // if global tmp
+//                tcg_out_pushi(s, reg_idx);
+//            }
+            if(tmp_idx < s->nb_globals)
+                tcg_out_pushi(s, tmp->reg);
+            else{
+                // tcg_out_pushi(s, tmp->mem_offset);
+                tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
+                // should be add or sub?
+                tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset);
+                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+            }
 
             // log val
             tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
@@ -2130,6 +2145,11 @@ inline void XT_log_tmp(TCGContext *s,
 //                tcg_out_push(s, tmp->reg);
 //            }
             tcg_out_pushi(s, flag);
+//            if(tmp_idx < s->nb_globals &&
+//               (reg_idx = get_global_temp_reg_idx(s, tmp) ) != -1 ) // if global tmp
+//                tcg_out_pushi(s, reg_idx);
+//            else
+//                tcg_out_pushi(s, tmp->reg);
             tcg_out_pushi(s, tmp->reg);
             tcg_out_push(s, tmp->reg);
         }
@@ -2400,6 +2420,39 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
            args[0] == XT_TCG_DEPOSIT){
         tcg_out_addi(s, TCG_REG_ESP, 0xc);
     }
+}
+
+inline int get_global_temp_reg_idx(TCGContext *s, TCGTemp *tmp){
+    int reg_idx = -1;
+    if(tmp->name == "eax")
+        reg_idx = R_EAX;
+    else if(tmp->name == "ebx")
+        reg_idx = R_EBX;
+    else if(tmp->name == "ecx")
+        reg_idx = R_ECX;
+    else if(tmp->name == "edx")
+        reg_idx = R_EDX;
+    else if(tmp->name == "esp")
+        reg_idx = R_ESP;
+    else if(tmp->name == "ebp")
+        reg_idx = R_EBP;
+    else if(tmp->name == "esi")
+        reg_idx = R_ESI;
+    else if(tmp->name == "edi")
+        reg_idx = R_EDI;
+    else if(tmp->name == "cc_op")
+        reg_idx = REG_IDX_CC_OP;
+    else if(tmp->name == "cc_src")
+        reg_idx = REG_IDX_CC_SRC;
+    else if(tmp->name == "cc_dst")
+        reg_idx = REG_IDX_CC_DST;
+    else if(tmp->name == "cc_tmp")
+        reg_idx = REG_IDX_CC_TMP;
+//    else{
+//        fprintf(stderr, "Unknow global temp, abort\n");
+//        tcg_abort();
+//    }
+    return reg_idx;
 }
 #endif /* CONFIG_TCG_XTAINT */
 
