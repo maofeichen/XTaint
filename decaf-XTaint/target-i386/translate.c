@@ -4251,6 +4251,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP)))
         tcg_gen_debug_insn_start(pc_start);
+#ifdef CONFIG_TCG_XTAINT
+    // debug
+    tcg_gen_debug_insn_start(pc_start);
+#endif /* CONFIG_TCG_XTAINT */
     s->pc = pc_start;
     prefixes = 0;
     aflag = s->code32;
