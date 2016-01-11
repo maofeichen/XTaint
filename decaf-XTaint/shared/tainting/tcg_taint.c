@@ -369,11 +369,11 @@ static inline int gen_taintcheck_insn(int search_pc)
               else
                   xt_flag = 0;
               if(orig0 != orig1){
-//                  gen_op_XT_mark(XT_TCG_DEPOSIT, pos, len);
+                  gen_op_XT_mark(XT_TCG_DEPOSIT, pos, len);
                   XT_log_ir(arg1, orig1, orig0, xt_flag);
                   XT_log_ir(arg2, orig2, orig0, xt_flag);
               } else{
-//                  gen_op_XT_mark(XT_TCG_DEPOSIT, pos, len);
+                  gen_op_XT_mark(XT_TCG_DEPOSIT, pos, len);
                   XT_log_ir(arg2, orig2, orig0, xt_flag);
               }
           }

@@ -1934,6 +1934,7 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
 static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
     TCGTemp *ts_shadow, *ts, *ots;
     int ts_idx, ots_idx;
+    int esp_offset = 0;
 
     ts_shadow = &s->temps[args[0]];
     ts = &s->temps[args[1]];
@@ -1950,6 +1951,8 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
     TCGReg src_shadow_reg;
 
     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+    esp_offset += 4;
+
     switch(ts_shadow->val_type){
         case TEMP_VAL_DEAD:
             fprintf(stderr, "source shadow tmp is dead\n");
@@ -1962,7 +1965,7 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
             if(ts_shadow->mem_reg == 0x4) // esp case
                 tcg_out_ld(s, ts_shadow->type, tcg_target_call_iarg_regs[0],
                                         ts_shadow->mem_reg,
-                                        ts_shadow->mem_offset + 0x4);
+                                        ts_shadow->mem_offset + esp_offset);
             else
                 tcg_out_ld(s, ts_shadow->type, tcg_target_call_iarg_regs[0],
                                         ts_shadow->mem_reg,
@@ -1980,18 +1983,18 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                     flag = TCG_QEMU_LD;
                 else
                     flag = 0;
-                XT_log_tmp_ld(s, args, ts, ots, flag);
-                XT_log_tmp(s, args, ots, flag, ots_idx);
+                XT_log_tmp_ld(s, args, ts, ots, flag, &esp_offset);
+                XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
             }else if(flag == XT_ST){
                 if(xt_encode_tcg_ir)
                     flag = TCG_QEMU_ST;
                 else
                     flag = 0;
-                XT_log_tmp(s, args, ts, flag, ts_idx);
-                XT_log_tmp_st(s, args, ts, ots, flag);
+                XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
+                XT_log_tmp_st(s, args, ts, ots, flag, &esp_offset);
             }else{
-                XT_log_tmp(s, args, ts, flag, ts_idx);
-                XT_log_tmp(s, args, ots, flag, ots_idx);
+                XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
+                XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
             }
 
             tcg_out_push(s, TCG_REG_ECX);
@@ -2020,18 +2023,18 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                     flag = TCG_QEMU_LD;
                 else
                     flag = 0;
-                XT_log_tmp_ld(s, args, ts, ots, flag);
-                XT_log_tmp(s, args, ots, flag, ots_idx);
+                XT_log_tmp_ld(s, args, ts, ots, flag, &esp_offset);
+                XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
             }else if(flag == XT_ST){
                 if(xt_encode_tcg_ir)
                     flag = TCG_QEMU_ST;
                 else
                     flag = 0;
-                XT_log_tmp(s, args, ts, flag, ts_idx);
-                XT_log_tmp_st(s, args, ts, ots, flag);
+                XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
+                XT_log_tmp_st(s, args, ts, ots, flag, &esp_offset);
             }else{
-                XT_log_tmp(s, args, ts, flag, ts_idx);
-                XT_log_tmp(s, args, ots, flag, ots_idx);
+                XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
+                XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
             }
 
             tcg_out_push(s, TCG_REG_ECX);
@@ -2052,18 +2055,18 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                         flag = TCG_QEMU_LD;
                     else
                         flag = 0;
-                    XT_log_tmp_ld(s, args, ts, ots, flag);
-                    XT_log_tmp(s, args, ots, flag, ots_idx);
+                    XT_log_tmp_ld(s, args, ts, ots, flag, &esp_offset);
+                    XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
                 }else if(flag == XT_ST){
                     if(xt_encode_tcg_ir)
                         flag = TCG_QEMU_ST;
                     else
                         flag = 0;
-                    XT_log_tmp(s, args, ts, flag, ts_idx);
-                    XT_log_tmp_st(s, args, ts, ots, flag);
+                    XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
+                    XT_log_tmp_st(s, args, ts, ots, flag, &esp_offset);
                 }else{
-                    XT_log_tmp(s, args, ts, flag, ts_idx);
-                    XT_log_tmp(s, args, ots, flag, ots_idx);
+                    XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
+                    XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
                 }
 
                 tcg_out_push(s, TCG_REG_ECX);
@@ -2091,85 +2094,96 @@ inline void XT_log_tmp(TCGContext *s,
                        TCGArg *args,
                        TCGTemp *tmp,
                        uint8_t flag,
-                       int tmp_idx){
+                       int tmp_idx,
+                       int *esp_offset){
     int reg_idx = -1;
+
     switch(tmp->val_type){
         case TEMP_VAL_DEAD:
-            fprintf(stderr, "tmp is deal\n");
+            fprintf(stderr, "XT_log_tmp(...): tmp is deal\n");
             assert(1 == 0);
             break;
         case TEMP_VAL_MEM:
         {
-            // if(tmp->mem_reg == 4)
-            //     flag += XT_BASE_ESP;
-            // else if(tmp->mem_reg == 5)
-            //     flag += XT_BASE_EBP;
-            // else{
-            //     fprintf(stderr, "base reg is neither esp nor ebp: %x\n", tmp->mem_reg);
-            //     assert(1 == 0);
-            // }
+            // save flag
             tcg_out_pushi(s, flag);
+            *esp_offset += 4;
 
-            // log addr
-//            if(tmp_idx < s->nb_globals &&
-//               (reg_idx = get_global_temp_reg_idx(s, tmp) ) != -1 ){ // if global tmp
-//                tcg_out_pushi(s, reg_idx);
-//            }
-            if(tmp_idx < s->nb_globals)
-                tcg_out_pushi(s, tmp->reg);
-            else{
-                // tcg_out_pushi(s, tmp->mem_offset);
+            // save addr
+            if(tmp->mem_reg == 4) { // %esp, special case, due to push flag affect it
+                tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
+                // should be add or sub?
+                tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset + *esp_offset);
+                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                *esp_offset += 4;
+            } else{
                 tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
                 // should be add or sub?
                 tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset);
                 tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                *esp_offset += 4;
             }
 
-            // log val
-            tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
-                       tmp->mem_reg, tmp->mem_offset);
+//            if(tmp_idx < s->nb_globals)
+//                tcg_out_pushi(s, tmp->reg);
+//            else{
+//                // tcg_out_pushi(s, tmp->mem_offset);
+//                tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
+//                // should be add or sub?
+//                tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset);
+//                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//            }
+
+            // save val
+            if(tmp->mem_reg == 4) { // %esp, special case, same reason
+                // should be 0x8, due to push twice already
+                tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+                           tmp->mem_reg, tmp->mem_offset + *esp_offset);
+            }else {
+                tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+                                           tmp->mem_reg, tmp->mem_offset);
+            }
             tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+            *esp_offset += 4;
         }
         break;
         case TEMP_VAL_REG:
         {
-            // any chance to be esp too?
-//            if(tmp->mem_allocated == 1 && tmp->mem_reg == 5){
-//                flag += XT_BASE_EBP;
-//                tcg_out_pushi(s, flag);
-//                tcg_out_pushi(s, tmp->mem_offset);
-//                tcg_out_push(s, tmp->reg);
-//            }else{
-//                tcg_out_pushi(s, flag);
-//                tcg_out_pushi(s, tmp->reg);
-//                tcg_out_push(s, tmp->reg);
-//            }
             tcg_out_pushi(s, flag);
+            *esp_offset += 4;
 //            if(tmp_idx < s->nb_globals &&
 //               (reg_idx = get_global_temp_reg_idx(s, tmp) ) != -1 ) // if global tmp
 //                tcg_out_pushi(s, reg_idx);
 //            else
 //                tcg_out_pushi(s, tmp->reg);
             tcg_out_pushi(s, tmp->reg);
+            *esp_offset += 4;
             tcg_out_push(s, tmp->reg);
+            *esp_offset += 4;
         }
         break;
         case TEMP_VAL_CONST:
         {
-            if(tmp->mem_allocated == 1 && tmp->mem_reg == 5){
-                flag += XT_BASE_EBP;
-                tcg_out_pushi(s, flag);
-                tcg_out_pushi(s, tmp->mem_offset);
-                tcg_out_push(s, tmp->reg);
-            }else if(s->reg_to_temp[tmp->reg] == args[1]){
-                tcg_out_pushi(s, flag);
-                tcg_out_pushi(s, tmp->reg);
-                tcg_out_pushi(s, tmp->val);
-            }else {
-                tcg_out_pushi(s, flag);
-                tcg_out_pushi(s, 0x004e4f43);
-                tcg_out_pushi(s, tmp->val);
-            }
+//            if(tmp->mem_allocated == 1 && tmp->mem_reg == 5){
+//                flag += XT_BASE_EBP;
+//                tcg_out_pushi(s, flag);
+//                tcg_out_pushi(s, tmp->mem_offset);
+//                tcg_out_push(s, tmp->reg);
+//            }else if(s->reg_to_temp[tmp->reg] == args[1]){
+//                tcg_out_pushi(s, flag);
+//                tcg_out_pushi(s, tmp->reg);
+//                tcg_out_pushi(s, tmp->val);
+//            }else {
+//                tcg_out_pushi(s, flag);
+//                tcg_out_pushi(s, 0x004e4f43);
+//                tcg_out_pushi(s, tmp->val);
+//            }
+            tcg_out_pushi(s, flag);
+            *esp_offset += 4;
+            tcg_out_pushi(s, 0x004e4f43);
+            *esp_offset += 4;
+            tcg_out_pushi(s, tmp->val);
+            *esp_offset += 4;
         }
         break;
         default:
@@ -2183,19 +2197,27 @@ inline void XT_log_tmp_ld(TCGContext *s,
                           TCGArg *args,
                           TCGTemp *ts,
                           TCGTemp *ots,
-                          uint8_t flag){
+                          uint8_t flag,
+                          int *esp_offset){
     switch(ts->val_type){
         case TEMP_VAL_DEAD:
-            fprintf(stderr, "tmp is dead\n");
+            fprintf(stderr, "XT_log_tmp_ld(...): tmp is dead\n");
             assert(1 == 0);
             break;
         case TEMP_VAL_MEM:
         {
             tcg_out_pushi(s, flag);
+            *esp_offset += 4;
+
             // log mem addr
-            tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0], ts->mem_reg,
-                       ts->mem_offset);
+            if(ts->mem_reg == 4)
+                tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0], ts->mem_reg,
+                       ts->mem_offset + *esp_offset);
+            else
+                tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0], ts->mem_reg,
+                                       ts->mem_offset);
             tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+            *esp_offset += 4;
 
             // log val
             // can dest and src reg be same?
@@ -2206,16 +2228,26 @@ inline void XT_log_tmp_ld(TCGContext *s,
                 case TEMP_VAL_DEAD:
                     break;
                 case TEMP_VAL_MEM:{
-                    tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
-                               ots->mem_reg, ots->mem_offset);
+                    // special case
+                    if(ots->mem_reg == 4)
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset + *esp_offset);
+                    else
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset);
                     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                    *esp_offset += 4;
                 }
                     break;
-                case TEMP_VAL_REG:
+                case TEMP_VAL_REG:{
                     tcg_out_push(s, ots->reg);
+                    *esp_offset += 4;
+                }
                     break;
-                case TEMP_VAL_CONST:
+                case TEMP_VAL_CONST:{
                     tcg_out_pushi(s, ots->val);
+                    *esp_offset += 4;
+                }
                     break;
                 default:
                     fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
@@ -2226,7 +2258,11 @@ inline void XT_log_tmp_ld(TCGContext *s,
         case TEMP_VAL_REG:
         {
             tcg_out_pushi(s, flag);
+            *esp_offset += 4;
+
             tcg_out_push(s, ts->reg); // log addr
+            *esp_offset += 4;
+
             // log val
 //            tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0], ts->reg, 0);
 //            tcg_out_push(s, tcg_target_call_iarg_regs[0]);
@@ -2234,16 +2270,25 @@ inline void XT_log_tmp_ld(TCGContext *s,
                 case TEMP_VAL_DEAD:
                     break;
                 case TEMP_VAL_MEM:{
-                    tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
-                               ots->mem_reg, ots->mem_offset);
+                    if(ots->mem_reg == 4)
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset + *esp_offset);
+                    else
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset);
                     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                    *esp_offset += 4;
                 }
                     break;
-                case TEMP_VAL_REG:
+                case TEMP_VAL_REG:{
                     tcg_out_push(s, ots->reg);
+                    *esp_offset += 4;
+                }
                     break;
-                case TEMP_VAL_CONST:
+                case TEMP_VAL_CONST:{
                     tcg_out_pushi(s, ots->val);
+                    *esp_offset += 4;
+                }
                     break;
                 default:
                     fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
@@ -2254,22 +2299,34 @@ inline void XT_log_tmp_ld(TCGContext *s,
         case TEMP_VAL_CONST:
         {
             tcg_out_pushi(s, flag);
+            *esp_offset += 4;
+
             tcg_out_pushi(s, ts->val);
+            *esp_offset += 4;
 //            tcg_out_pushi(s, 0x004e4f43);
             switch(ots->val_type){
                 case TEMP_VAL_DEAD:
                     break;
                 case TEMP_VAL_MEM:{
-                    tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
-                               ots->mem_reg, ots->mem_offset);
+                    if(ots->mem_reg == 4)
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset + *esp_offset);
+                    else
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset);
                     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                    *esp_offset += 4;
                 }
                     break;
-                case TEMP_VAL_REG:
+                case TEMP_VAL_REG:{
                     tcg_out_push(s, ots->reg);
+                    *esp_offset += 4;
+                }
                     break;
-                case TEMP_VAL_CONST:
+                case TEMP_VAL_CONST:{
                     tcg_out_pushi(s, ots->val);
+                    *esp_offset += 4;
+                }
                     break;
                 default:
                     fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
@@ -2288,7 +2345,8 @@ inline void XT_log_tmp_st(TCGContext *s,
                           TCGArg *args,
                           TCGTemp *ts,
                           TCGTemp *ots,
-                          uint8_t flag){
+                          uint8_t flag,
+                          int *esp_offset){
     switch(ts->val_type){
         case TEMP_VAL_DEAD:
             fprintf(stderr, "tmp is dead\n");
@@ -2297,21 +2355,32 @@ inline void XT_log_tmp_st(TCGContext *s,
         case TEMP_VAL_MEM:
         {
             tcg_out_pushi(s, flag);
+            *esp_offset += 4;
+
             // log mem addr: ots contains an addr, load it
             switch(ots->val_type){
                 case TEMP_VAL_DEAD:
                     break;
                 case TEMP_VAL_MEM:{
-                    tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
-                               ots->mem_reg, ots->mem_offset);
+                    if(ots->mem_reg == 4)
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset + *esp_offset);
+                    else
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset);
                     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                    *esp_offset += 4;
                 }
                     break;
-                case TEMP_VAL_REG:
+                case TEMP_VAL_REG:{
                     tcg_out_push(s, ots->reg);
+                    *esp_offset += 4;
+                }
                     break;
-                case TEMP_VAL_CONST:
+                case TEMP_VAL_CONST:{
                     tcg_out_pushi(s, ots->val);
+                    *esp_offset += 4;
+                }
                     break;
                 default:
                     fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
@@ -2322,26 +2391,38 @@ inline void XT_log_tmp_st(TCGContext *s,
             tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0],
                        ts->mem_reg, ts->mem_offset);
             tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+            *esp_offset += 4;
         }
             break;
         case TEMP_VAL_REG:
         {
             tcg_out_pushi(s, flag);
+            *esp_offset += 4;
+
             // log mem addr: ots contains an addr, load it
             switch(ots->val_type){
                 case TEMP_VAL_DEAD:
                     break;
                 case TEMP_VAL_MEM:{
-                    tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
-                               ots->mem_reg, ots->mem_offset);
+                    if(ots->mem_reg == 4)
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset + *esp_offset);
+                    else
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset);
                     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                    *esp_offset += 4;
                 }
                     break;
-                case TEMP_VAL_REG:
+                case TEMP_VAL_REG:{
                     tcg_out_push(s, ots->reg);
+                    *esp_offset += 4;
+                }
                     break;
-                case TEMP_VAL_CONST:
+                case TEMP_VAL_CONST:{
                     tcg_out_pushi(s, ots->val);
+                    *esp_offset += 4;
+                }
                     break;
                 default:
                     fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
@@ -2349,26 +2430,38 @@ inline void XT_log_tmp_st(TCGContext *s,
             }
             // log val
             tcg_out_push(s, ts->reg);
+            *esp_offset += 4;
         }
             break;
         case TEMP_VAL_CONST:
         {
             tcg_out_pushi(s, flag);
+            *esp_offset += 4;
+
             // log mem addr: ots contains an addr, load it
             switch(ots->val_type){
                 case TEMP_VAL_DEAD:
                     break;
                 case TEMP_VAL_MEM:{
-                    tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
-                               ots->mem_reg, ots->mem_offset);
+                    if(ots->mem_reg == 4)
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset + *esp_offset);
+                    else
+                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+                                   ots->mem_reg, ots->mem_offset);
                     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                    *esp_offset += 4;
                 }
                     break;
-                case TEMP_VAL_REG:
+                case TEMP_VAL_REG:{
                     tcg_out_push(s, ots->reg);
+                    *esp_offset += 4;
+                }
                     break;
-                case TEMP_VAL_CONST:
+                case TEMP_VAL_CONST:{
                     tcg_out_pushi(s, ots->val);
+                    *esp_offset += 4;
+                }
                     break;
                 default:
                     fprintf(stderr, "unknown ts/ots type: %d\n", ots->val_type);
@@ -2376,6 +2469,7 @@ inline void XT_log_tmp_st(TCGContext *s,
             }
             // log val
             tcg_out_pushi(s, ts->val);
+            *esp_offset += 4;
 
         }
             break;

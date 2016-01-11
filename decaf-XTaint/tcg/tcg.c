@@ -2150,10 +2150,10 @@ static inline int tcg_gen_code_common(TCGContext *s, uint8_t *gen_code_buf,
         {
 #ifdef CONFIG_TCG_XTAINT
             // debug
-            uint32_t pc;
-            pc = args[0];
-            if(pc == 0x80492be)
-                printf("pc: 0x%x\n", pc);
+//            uint32_t pc;
+//            pc = args[0];
+//            if(pc == 0x80492be)
+//                printf("pc: 0x%x\n", pc);
 #endif /* CONFIG_TCG_XTAINT */
         }
             break;

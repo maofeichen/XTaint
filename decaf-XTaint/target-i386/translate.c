@@ -4253,7 +4253,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         tcg_gen_debug_insn_start(pc_start);
 #ifdef CONFIG_TCG_XTAINT
     // debug
-    tcg_gen_debug_insn_start(pc_start);
+//    tcg_gen_debug_insn_start(pc_start);
 #endif /* CONFIG_TCG_XTAINT */
     s->pc = pc_start;
     prefixes = 0;
