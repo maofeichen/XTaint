@@ -1380,16 +1380,16 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_add_i32(orig0, orig1, orig2);
 #ifdef CONFIG_TCG_XTAINT
           if (xt_enable_log_ir) {
-//              if(xt_encode_tcg_ir)
-//                  xt_flag = TCG_ADD;
-//              else
-//                  xt_flag = 0;
-//              if(orig0 != orig1) // if dest is not equal to 1st src
-//                  if(arg1)
-//                      XT_log_ir(arg1, orig1, orig0, xt_flag);
-//              if(orig0 != orig2) // if dest is not equal to 2nd src
-//                  if(arg2)
-//                      XT_log_ir(arg2, orig2, orig0, xt_flag);
+              if(xt_encode_tcg_ir)
+                  xt_flag = TCG_ADD;
+              else
+                  xt_flag = 0;
+              if(orig0 != orig1) // if dest is not equal to 1st src
+                  if(arg1)
+                      XT_log_ir(arg1, orig1, orig0, xt_flag);
+              if(orig0 != orig2) // if dest is not equal to 2nd src
+                  if(arg2)
+                      XT_log_ir(arg2, orig2, orig0, xt_flag);
           }
 #endif /* CONFIG_TCG_XTAINT */
         }

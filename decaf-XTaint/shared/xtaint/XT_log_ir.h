@@ -52,10 +52,20 @@
 #define TCG_NOT 0x48
 #define TCG_DEPOSIT 0x49
 
-#define REG_IDX_CC_OP 0x4b
-#define REG_IDX_CC_SRC 0x4c
-#define REG_IDX_CC_DST 0x4d
-#define REG_IDX_CC_TMP 0x4e
+/* encode global temps*/
+#define G_TEMP_ENV 0xFFF0
+#define G_TEMP_CC_OP 0xFFF1
+#define G_TEMP_CC_SRC 0xFFF2
+#define G_TEMP_CC_DST 0xFFF3
+#define G_TEMP_CC_TMP 0xFFF4
+#define G_TEMP_EAX 0xFFF5
+#define G_TEMP_ECX 0xFFF6
+#define G_TEMP_EDX 0xFFF7
+#define G_TEMP_EBX 0xFFF8
+#define G_TEMP_ESP 0xFFF9
+#define G_TEMP_EBP 0xFFFa
+#define G_TEMP_ESI 0xFFFb
+#define G_TEMP_EDI 0xFFFc
 
 
 

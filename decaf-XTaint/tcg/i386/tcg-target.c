@@ -33,6 +33,7 @@
 #ifdef CONFIG_TCG_XTAINT
 #include "xtaint/XT_log_ir.h"
 #include "target-i386/cpu.h"
+#include <string.h>
 #endif /* CONFGI_TCG_XTAINT */
 
 #endif /* CONFIG_TCG_XTAINT */
@@ -2110,28 +2111,28 @@ inline void XT_log_tmp(TCGContext *s,
             *esp_offset += 4;
 
             // save addr
-            if(tmp->mem_reg == 4) { // %esp, special case, due to push flag affect it
-                tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
-                // should be add or sub?
-                tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset + *esp_offset);
-                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-                *esp_offset += 4;
-            } else{
-                tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
-                // should be add or sub?
-                tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset);
-                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-                *esp_offset += 4;
-            }
+            // use temporary name as record name: 1) for global tmp, use the
+            // name member 2) rest use idx - num of globals
+            if(tmp_idx < s->nb_globals){
+                reg_idx = get_global_temp_reg_idx(s, tmp);
+                tcg_out_pushi(s, reg_idx);
+//                tcg_out_pushi(s, tmp->name);
+            } else
+                tcg_out_pushi(s, tmp_idx - s->nb_globals);
+            *esp_offset += 4;
 
-//            if(tmp_idx < s->nb_globals)
-//                tcg_out_pushi(s, tmp->reg);
-//            else{
-//                // tcg_out_pushi(s, tmp->mem_offset);
+//            if(tmp->mem_reg == 4) { // %esp, special case, due to push flag affect it
+//                tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
+//                // should be add or sub?
+//                tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset + *esp_offset);
+//                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//                *esp_offset += 4;
+//            } else{
 //                tcg_out_mov(s, tmp->type, tcg_target_call_iarg_regs[0], tmp->mem_reg);
 //                // should be add or sub?
 //                tcg_out_addi(s, tcg_target_call_iarg_regs[0], tmp->mem_offset);
 //                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//                *esp_offset += 4;
 //            }
 
             // save val
@@ -2151,37 +2152,38 @@ inline void XT_log_tmp(TCGContext *s,
         {
             tcg_out_pushi(s, flag);
             *esp_offset += 4;
-//            if(tmp_idx < s->nb_globals &&
-//               (reg_idx = get_global_temp_reg_idx(s, tmp) ) != -1 ) // if global tmp
-//                tcg_out_pushi(s, reg_idx);
-//            else
-//                tcg_out_pushi(s, tmp->reg);
-            tcg_out_pushi(s, tmp->reg);
+
+            if(tmp_idx < s->nb_globals){
+                reg_idx = get_global_temp_reg_idx(s, tmp);
+                tcg_out_pushi(s, reg_idx);
+//                tcg_out_pushi(s, tmp->name);
+            } else
+                tcg_out_pushi(s, tmp_idx - s->nb_globals);
             *esp_offset += 4;
+
+//            tcg_out_pushi(s, tmp->reg);
+//            *esp_offset += 4;
+
             tcg_out_push(s, tmp->reg);
             *esp_offset += 4;
         }
         break;
         case TEMP_VAL_CONST:
         {
-//            if(tmp->mem_allocated == 1 && tmp->mem_reg == 5){
-//                flag += XT_BASE_EBP;
-//                tcg_out_pushi(s, flag);
-//                tcg_out_pushi(s, tmp->mem_offset);
-//                tcg_out_push(s, tmp->reg);
-//            }else if(s->reg_to_temp[tmp->reg] == args[1]){
-//                tcg_out_pushi(s, flag);
-//                tcg_out_pushi(s, tmp->reg);
-//                tcg_out_pushi(s, tmp->val);
-//            }else {
-//                tcg_out_pushi(s, flag);
-//                tcg_out_pushi(s, 0x004e4f43);
-//                tcg_out_pushi(s, tmp->val);
-//            }
             tcg_out_pushi(s, flag);
             *esp_offset += 4;
-            tcg_out_pushi(s, 0x004e4f43);
+
+            if(tmp_idx < s->nb_globals){
+                reg_idx = get_global_temp_reg_idx(s, tmp);
+                tcg_out_pushi(s, reg_idx);
+//                tcg_out_pushi(s, tmp->name);
+            } else
+                tcg_out_pushi(s, tmp_idx - s->nb_globals);
             *esp_offset += 4;
+
+//            tcg_out_pushi(s, 0x004e4f43);
+//            *esp_offset += 4;
+
             tcg_out_pushi(s, tmp->val);
             *esp_offset += 4;
         }
@@ -2518,30 +2520,31 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
 
 inline int get_global_temp_reg_idx(TCGContext *s, TCGTemp *tmp){
     int reg_idx = -1;
-    if(tmp->name == "eax")
-        reg_idx = R_EAX;
-    else if(tmp->name == "ebx")
-        reg_idx = R_EBX;
-    else if(tmp->name == "ecx")
-        reg_idx = R_ECX;
-    else if(tmp->name == "edx")
-        reg_idx = R_EDX;
-    else if(tmp->name == "esp")
-        reg_idx = R_ESP;
-    else if(tmp->name == "ebp")
-        reg_idx = R_EBP;
-    else if(tmp->name == "esi")
-        reg_idx = R_ESI;
-    else if(tmp->name == "edi")
-        reg_idx = R_EDI;
-    else if(tmp->name == "cc_op")
-        reg_idx = REG_IDX_CC_OP;
-    else if(tmp->name == "cc_src")
-        reg_idx = REG_IDX_CC_SRC;
-    else if(tmp->name == "cc_dst")
-        reg_idx = REG_IDX_CC_DST;
-    else if(tmp->name == "cc_tmp")
-        reg_idx = REG_IDX_CC_TMP;
+
+    if(strcmp(tmp->name, "eax") == 0)
+        reg_idx = G_TEMP_EAX;
+    else if(strcmp(tmp->name, "ebx") == 0)
+        reg_idx = G_TEMP_EBX;
+    else if(strcmp(tmp->name, "ecx") == 0)
+        reg_idx = G_TEMP_ECX;
+    else if(strcmp(tmp->name, "edx") == 0)
+        reg_idx = G_TEMP_EDX;
+    else if(strcmp(tmp->name, "esp") == 0)
+        reg_idx = G_TEMP_ESP;
+    else if(strcmp(tmp->name, "ebp") == 0)
+        reg_idx = G_TEMP_EBP;
+    else if(strcmp(tmp->name, "esi") == 0)
+        reg_idx = G_TEMP_ESI;
+    else if(strcmp(tmp->name, "edi") == 0)
+        reg_idx = G_TEMP_EDI;
+    else if(strcmp(tmp->name, "cc_op") == 0)
+        reg_idx = G_TEMP_CC_OP;
+    else if(strcmp(tmp->name, "cc_src") == 0)
+        reg_idx = G_TEMP_CC_SRC;
+    else if(strcmp(tmp->name, "cc_dst") == 0)
+        reg_idx = G_TEMP_CC_DST;
+    else if(strcmp(tmp->name, "cc_tmp") == 0)
+        reg_idx = G_TEMP_CC_TMP;
 //    else{
 //        fprintf(stderr, "Unknow global temp, abort\n");
 //        tcg_abort();
