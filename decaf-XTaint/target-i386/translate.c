@@ -4253,7 +4253,12 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         tcg_gen_debug_insn_start(pc_start);
 #ifdef CONFIG_TCG_XTAINT
     // debug
-//    tcg_gen_debug_insn_start(pc_start);
+    // tcg_gen_debug_insn_start(pc_start);
+
+    // debug how qemu translates 0xb8(mov)
+    // if(pc_start == 0x80483ec){
+    //     printf("pc at 0x80483ec\n");
+    // }
 #endif /* CONFIG_TCG_XTAINT */
     s->pc = pc_start;
     prefixes = 0;
@@ -4414,6 +4419,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             else
                 ot = dflag + OT_WORD;
 
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
+
             switch(f) {
             case 0: /* OP Ev, Gv */
                 modrm = ldub_code(s->pc++);
@@ -4458,6 +4472,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 gen_op(s, op, ot, OR_EAX);
                 break;
             }
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_END, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 

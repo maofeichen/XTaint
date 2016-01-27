@@ -77,6 +77,9 @@ extern int xt_do_debug(Monitor *mon, const QDict *qdict, QObject **ret_data);
 
 extern int xt_encode_tcg_ir;
 
+extern int xt_enable_size_mark;
+extern int xt_do_size_mark(Monitor *mon, const QDict *qdict, QObject **ret_data);
+
 extern void XT_write_tmp();
 extern void XT_write_mark();
 #endif /* CONFIG_TCG_XTAINT */

@@ -138,6 +138,13 @@ http://code.google.com/p/decaf-platform/
         .help       = "Turn on/off xtaint debug mode",
         .mhandler.cmd_new = xt_do_debug,
 },
+{
+        .name       = "xtaint_size_mark",
+        .args_type  = "load:b",
+        .params     = "on|off",
+        .help       = "Turn on/off xtaint size mark for each guest insn",
+        .mhandler.cmd_new = xt_do_size_mark,
+},
 #endif /* CONFIG_TCG_XTAINT */
 #endif /* CONFIG_TCG_TAINT */
 
