@@ -11,4 +11,6 @@
 #define XT_SIZE_BEGIN "20"
 #define XT_SIZE_END "24"
 
+#define TCG_ADD "3b"
+#define TCG_XOR "40"
 #endif

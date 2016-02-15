@@ -14,8 +14,11 @@
 
 using namespace std;
 
-const char* XTLOG_PATH = \
-    "test-aes-128-single-block-with-size-mark-refine.txt";
+// const char* XTLOG_PATH =                                  \
+//     "test-aes-128-single-block-with-size-mark-refine.txt";
+
+const char* XTLOG_PATH =                                    \
+    "test-aes-single-block-temp_name-as-name-refine.txt";
 
 void open_xtlog(vector<Record_t>&);
 void propagate(struct Node_t, vector<Record_t>&);
@@ -174,24 +177,43 @@ vector<Node_Propagate_t> bfs(vector<Record_t>& records,
                         if(cur.node.val == r.src.val){
                             is_propa = true;
                             propa_num++;
-                        }
-                        else if(cur_val_len > r_src_val_len && \
+                        } else if(cur_val_len > r_src_val_len && \
                                 cur.node.val.find(r.src.val) != string::npos){
                             is_propa = true;
                             propa_num++;
-                        }
-                        else if(cur_val_len < r_src_val_len && \
+                        } else if(cur_val_len < r_src_val_len && \
                                 r.src.val.find(cur.node.val) != string::npos){
                             is_propa = true;
                             propa_num++;
                         }
+                        // special case: tcg add
+                        // even only names are same, consider valid
+                        else if(r.src.flag == TCG_ADD){
+                            is_propa = true;
+                            propa_num++;
+                        }
+                        // special case: tcg xor
+                        // if current node's next record is a xor
+                        // only names are same, valid propagation
+                        else if(records[cur.pos + 1].src.flag == TCG_XOR){
+                            is_propa = true;
+                            propa_num++;
+                        }
+                    }
+                    // Special case: load pointer, value as name
+                    // val len should large than 7 (addr)
+                    else if(cur.node.val == r.src.name && \
+                            cur.node.val.length() >= 7){
+                        is_propa = true;
+                        propa_num++;
                     }
 
                     if(is_propa){
                         // propagate mul times within same guest insn
                         // but only once cross guest insn
+                        // except with mem addr
                         if(is_within_insn || \
-                           (!is_within_insn && propa_num == 1) ){
+                           (!is_within_insn && propa_num == 1) ){ 
                             next.parent_idx = cur.idx;
                             next.idx = i * 2;
                             next.layer = cur.layer + 1;
@@ -203,7 +225,9 @@ vector<Node_Propagate_t> bfs(vector<Record_t>& records,
                             next.node.val = r.src.val;
                             propa.push(next);
                         }
-                        
+
+                        // if NOT within same insn && current node is NOT
+                        // a mem add, saftly break loop
                         if(!is_within_insn)
                             break;
                     }
