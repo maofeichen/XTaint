@@ -22,12 +22,12 @@ void read_xtlog(std::ifstream& xtlog, std::vector<Record_t>& records)
            str[0] == XT_TCG_DEPOSIT ||\
            str[0] == XT_SIZE_BEGIN ||\
            str[0] == XT_SIZE_END) {
-            r.isMarker = true;
+            r.is_mark = true;
             r.src.flag = str[0];
             r.src.name = str[1];
             r.src.val = str[2];
         } else{
-            r.isMarker = false;
+            r.is_mark = false;
             r.src.flag = str[0];
             r.src.name = str[1];
             r.src.val = str[2];
