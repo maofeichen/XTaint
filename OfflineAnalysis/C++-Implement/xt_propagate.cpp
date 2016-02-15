@@ -1,6 +1,7 @@
 /*
- * file: xt_propagate.cpp
- * desc: given a xtaint log file and a source, print out all destinations 
+ * xt_propagate.cpp
+ *
+ * given a xtaint log file and a source, print out all destinations 
  * that the source can propagate to, level by level
  */
 
@@ -9,6 +10,7 @@
 #include <queue>
 #include <vector>
 #include "xt_record.h"
+#include "xt_flag.h"
 
 using namespace std;
 
@@ -61,7 +63,8 @@ void open_xtlog(vector<Record_t>& records)
 // 1) a record contains a source node and destiantion node, each node is a
 //    triple <flag name val>. A record represents a propagate:
 //    src <flag name val> -> dst <flag name val>
-void propagate(struct Node_t src, vector<Record_t>& records){
+void propagate(struct Node_t src, vector<Record_t>& records)
+{
     int idx, lay, pos;
     pos = 0;
     lay = 0;
@@ -109,7 +112,11 @@ void propagate(struct Node_t src, vector<Record_t>& records){
         }
         cout << "layer: " << i->layer;
         cout << "\tidx: " << i->idx;
-        cout << "\tparent_idx: " << i->parent_idx << endl;
+        cout << "\tparent_idx: " << i->parent_idx;
+        if(i->isSrc)
+            cout << "\tsrc" << endl;
+        else
+            cout << "\tdst" << endl;
 
         cout << "flag: " << i->node.flag;
         cout << "\tname: " << i->node.name;
@@ -117,52 +124,93 @@ void propagate(struct Node_t src, vector<Record_t>& records){
     }
 }
 
-
-vector<Node_Propagate_t> bfs(vector<Record_t>& records, queue<Node_Propagate_t>& propa){
+vector<Node_Propagate_t> bfs(vector<Record_t>& records,
+                             queue<Node_Propagate_t>& propa)
+{
     vector<Node_Propagate_t> res;
     struct Node_Propagate_t cur, next;
     struct Record_t r;
+    bool is_propa = false;
+    bool is_within_insn;
+    int propa_num = 0;
     
     while(!propa.empty() ){
         cur = propa.front();
         res.push_back(cur);
 
         // a src node, push its direct dst node into queue
+        // except the name & val of the src and dst are same 
         if(cur.isSrc){
-            next.parent_idx = cur.idx;
-            next.idx = cur.idx + 1;
-            next.layer = cur.layer;
-            next.pos = cur.pos;
-            next.isSrc = false;
+            if(records[cur.pos].src.name != records[cur.pos].dst.name || \
+               records[cur.pos].src.val != records[cur.pos].dst.val){
+                next.parent_idx = cur.idx;
+                next.idx = cur.idx + 1;
+                next.layer = cur.layer + 1;
+                next.pos = cur.pos;
+                next.isSrc = false;
 
-            next.node.flag = records[cur.pos].dst.flag;
-            next.node.name = records[cur.pos].dst.name;
-            next.node.val = records[cur.pos].dst.val;
-            propa.push(next);
-        } else{
+                next.node.flag = records[cur.pos].dst.flag;
+                next.node.name = records[cur.pos].dst.name;
+                next.node.val = records[cur.pos].dst.val;
+                propa.push(next);
+            }
+        } else{ // a dst node, search all in the records
+            is_within_insn = true;
+            propa_num = 0;
             for(vector<Record_t>::size_type i = cur.pos + 1; i != records.size(); i++){
                 r = records[i];
-                if(!r.isMarker){
-                    // name & val are same considers a valid propagate
-                    if(cur.node.name == r.src.name && \
-                       cur.node.val == r.src.val){
-                        next.parent_idx = cur.idx;
-                        next.idx = i * 2;
-                        next.layer = cur.layer + 1;
-                        next.pos = i;
-                        next.isSrc = true;
 
-                        next.node.flag = r.src.flag;
-                        next.node.name = r.src.name;
-                        next.node.val = r.src.val;
-                        propa.push(next);           
+                // a guest insn marker
+                if(r.isMarker && r.src.flag == XT_INSN_ADDR)
+                    is_within_insn = false;
+                
+                if(!r.isMarker){
+                    is_propa = false;
+                    
+                    // conditions considered as valid propagate
+                    if(cur.node.name == r.src.name){
+                        int cur_val_len = cur.node.val.length();
+                        int r_src_val_len = r.src.val.length();
+                        if(cur.node.val == r.src.val){
+                            is_propa = true;
+                            propa_num++;
+                        }
+                        else if(cur_val_len > r_src_val_len && \
+                                cur.node.val.find(r.src.val) != string::npos){
+                            is_propa = true;
+                            propa_num++;
+                        }
+                        else if(cur_val_len < r_src_val_len && \
+                                r.src.val.find(cur.node.val) != string::npos){
+                            is_propa = true;
+                            propa_num++;
+                        }
+                    }
+
+                    if(is_propa){
+                        // propagate mul times within same guest insn
+                        // but only once cross guest insn
+                        if(is_within_insn || \
+                           (!is_within_insn && propa_num == 1) ){
+                            next.parent_idx = cur.idx;
+                            next.idx = i * 2;
+                            next.layer = cur.layer + 1;
+                            next.pos = i;
+                            next.isSrc = true;
+
+                            next.node.flag = r.src.flag;
+                            next.node.name = r.src.name;
+                            next.node.val = r.src.val;
+                            propa.push(next);
+                        }
+                        
+                        if(!is_within_insn)
+                            break;
                     }
                 }
             }
         }
-        
         propa.pop();
     }
-
     return res;
 }
