@@ -22,10 +22,19 @@ const char* XTLOG_PATH =                                    \
 
 void open_xtlog(vector<Record_t>&);
 void propagate(struct Node_t, vector<Record_t>&);
-vector<Node_Propagate_t> bfs(vector<Record_t>&, queue<Node_Propagate_t>&);
+vector<Node_Propagate_t> bfs(vector<Record_t>&,
+                             priority_queue<Node_Propagate_t>&,
+                             queue<Node_Propagate_t>&);
+
 inline string get_insn_addr(int idx, vector<Record_t>&);
-bool valid_propagate(struct Node_Propagate_t&, struct Record_t&, vector<Record_t>&, int&);
-bool push_to_res(bool&, int&);
+inline bool is_local_mem_addr(struct Node_Propagate_t&);
+bool is_valid_propagate(struct Node_Propagate_t&, struct Record_t&, vector<Record_t>&);
+bool is_push_to_res(bool&, int&);
+
+Node_Propagate_t propag_dirt_dst_node(Node_Propagate_t&, vector<Record_t>&);
+Node_Propagate_t propag_to_src_node(Node_Propagate_t&,
+                                    vector<Record_t>&,
+                                    int);
 
 int main()
 {
@@ -78,9 +87,12 @@ void propagate(struct Node_t src, vector<Record_t>& rs)
 {
     int id = 0, lay = 0, idx = 0;
     bool is_src_found = false;
+    bool is_local_mem = false;
+    string insn_addr = "";
     struct Node_Propagate_t hit;
     vector<Node_Propagate_t> res;
     queue<Node_Propagate_t> q_propa;
+    priority_queue<Node_Propagate_t> q_mem_propa;
     
     // searches the src node in XTaint records (first hit)
     for(vector<Record_t>::iterator i = rs.begin(); i != rs.end(); ++i) {
@@ -109,23 +121,36 @@ void propagate(struct Node_t src, vector<Record_t>& rs)
                 hit.p_id = 0;
                 hit.idx = idx;
                 hit.insn_addr = get_insn_addr(idx, rs);
-                q_propa.push(hit);
+
+                is_local_mem = is_local_mem_addr(hit);
+                if(is_local_mem)
+                    q_mem_propa.push(hit);
+                else
+                    q_propa.push(hit);
                 break;
             }
         }
         idx++;
     }
 
-    res = bfs(rs, q_propa);
+    res = bfs(rs, q_mem_propa, q_propa);
     
     cout << "total results: " << res.size() << endl;
-    cout << "----------------------------------------" << endl;
+    cout << "------------------------------" << endl;
     
     for(vector<Node_Propagate_t>::iterator i = res.begin(); i != res.end(); ++i){
         if(lay != i->layer){
-            cout << "----------------------------------------" << endl;
+            cout << "------------------------------" << endl;
             lay = i->layer;
         }
+
+        if(insn_addr != i->insn_addr){
+            insn_addr = i->insn_addr;
+            cout << "==============================" << endl;
+            cout << "guest insn addr: " << insn_addr << endl;
+            cout << "==============================" << endl;
+        }
+        
         cout << "layer: " << i->layer;
         cout << "\tid: " << i->id;
         cout << "\tp_id: " << i->p_id;
@@ -141,6 +166,7 @@ void propagate(struct Node_t src, vector<Record_t>& rs)
 }
 
 vector<Node_Propagate_t> bfs(vector<Record_t>& rs,
+                             priority_queue<Node_Propagate_t>& q_mem_propa,
                              queue<Node_Propagate_t>& q_propa)
 {
     vector<Node_Propagate_t> res;
@@ -149,72 +175,114 @@ vector<Node_Propagate_t> bfs(vector<Record_t>& rs,
     bool is_valid_propa = false;
     bool within_insn = true;
     bool is_push_res = false;
+    bool is_local_mem = false;
     int num_propa = 0;
     int j = 0;
-    
-    while(!q_propa.empty() ){
-        num_propa = 0;
-        within_insn = true;
-        
-        curr_nd = q_propa.front();
+
+    while(!q_mem_propa.empty() ){
+
+    l_proc_q_propa:
+        // first process non mem propagation
+        while(!q_propa.empty() ){
+            num_propa = 0;
+            within_insn = true;
+            is_local_mem = false;
+
+            curr_nd = q_propa.front();
+            res.push_back(curr_nd);
+
+            // if a src node, propagate its direct
+            // dst node in same record
+            if(curr_nd.is_src){
+                j = curr_nd.idx;
+                // if both <name val> are same, ignore
+                if(rs[j].src.name != rs[j].dst.name || \
+                   rs[j].src.val != rs[j].dst.val){
+                    next_nd = propag_dirt_dst_node(curr_nd, rs);
+
+                    // a dst node, even it's in local mem,
+                    // NO need store in mem queue
+                    q_propa.push(next_nd);
+                    num_propa++;
+                }
+            }
+            // if a dst node
+            else{
+                num_propa = 0;
+                for(vector<Record_t>::size_type i = curr_nd.idx + 1; i != rs.size(); i++){
+                    is_valid_propa = false;
+                    r = rs[i];
+
+                    // if next guest insn marker is found, set flag false
+                    if(within_insn){
+                        if(r.is_mark && r.src.flag == XT_INSN_ADDR)
+                            within_insn = false;
+                    }
+
+                    // if regular record
+                    if(!r.is_mark){
+                        // is current record's src a valid propagation
+                        is_valid_propa = is_valid_propagate(curr_nd, r, rs);
+
+                        if(is_valid_propa){
+                            // valid, can get its propagated src node
+                            next_nd = propag_to_src_node(curr_nd, rs, i);
+
+                            // if a local mem node, always push to mem queue
+                            is_local_mem = is_local_mem_addr(next_nd);
+                            if(is_local_mem){
+                                q_mem_propa.push(next_nd);
+                                num_propa++;
+                            }
+                            else{
+                                // even it might be a valid propagation,
+                                // but need to determin if push to regular queue
+                                is_push_res = is_push_to_res(within_insn, num_propa);
+                                if(is_push_res){ 
+                                    q_propa.push(next_nd);
+                                    num_propa++;
+                                }
+                            }
+                        }
+                    }
+
+                    // if 1) not within same guest insn
+                    // 2) already have 1 propagate hit
+                    // 3) NOT a local mem addr
+                    // can break the for loop
+                    if(!within_insn && num_propa >= 1)
+                        if(!is_local_mem_addr(curr_nd) )
+                            break;
+                } // end for loop
+            }
+            q_propa.pop();
+        }
+
+        // begin to process mem queue
+        curr_nd = q_mem_propa.top();
         res.push_back(curr_nd);
 
-        // if a src node, push its direct dst node into queue
-        // except both <name val> are same, ignore 
+        // mem queue only containt nodes are in src
         if(curr_nd.is_src){
             j = curr_nd.idx;
+            // if both <name val> are same, ignore
             if(rs[j].src.name != rs[j].dst.name || \
                rs[j].src.val != rs[j].dst.val){
-                next_nd.p_id = curr_nd.id;
-                next_nd.id = curr_nd.id + 1;
-                next_nd.layer = curr_nd.layer + 1;
-                next_nd.idx = j;
-                next_nd.is_src = false;
+                next_nd = propag_dirt_dst_node(curr_nd, rs);
 
-                next_nd.nd.flag = rs[j].dst.flag;
-                next_nd.nd.name = rs[j].dst.name;
-                next_nd.nd.val = rs[j].dst.val;
-                
+                // a dst node, even it's in local mem,
+                // NO need store in mem queue
                 q_propa.push(next_nd);
                 num_propa++;
             }
         }
-        else{ // if a dst node, search all rest srcs in XTaint records
-            for(vector<Record_t>::size_type i = curr_nd.idx + 1; i != rs.size(); i++){
-                is_valid_propa = false;
-                r = rs[i];
+        
+        q_mem_propa.pop();
 
-                // if next guest insn marker is found, set flag false
-                if(within_insn){
-                    if(r.is_mark && r.src.flag == XT_INSN_ADDR)
-                        within_insn = false;
-                }
-
-                // if regular record
-                if(!r.is_mark){
-                    is_valid_propa = valid_propagate(curr_nd, r, rs, num_propa);
-
-                    if(is_valid_propa){
-                        is_push_res = push_to_res(within_insn, num_propa);
-                        
-                        if(is_push_res) {
-                            next_nd.p_id = curr_nd.id;
-                            next_nd.id = i * 2;
-                            next_nd.layer = curr_nd.layer + 1;
-                            next_nd.idx = i;
-                            next_nd.is_src = true;
-
-                            next_nd.nd.flag = r.src.flag;
-                            next_nd.nd.name = r.src.name;
-                            next_nd.nd.val = r.src.val;
-                            q_propa.push(next_nd);
-                        }
-                    }
-                }
-            }
-        }
-        q_propa.pop();
+        if(!q_propa.empty() )
+            goto l_proc_q_propa;
     }
+    
     return res;
 }
 
@@ -235,61 +303,122 @@ inline string get_insn_addr(int idx, vector<Record_t>& rs)
 // determins if it is a valid propagtion give a current dst node in queue
 // and its compare record
 // return: ture if valid, else false
-inline bool valid_propagate(struct Node_Propagate_t& c,
+inline bool is_valid_propagate(struct Node_Propagate_t& c,
                      struct Record_t& r,
-                     vector<Record_t>& rs,
-                     int& num_propa)
+                     vector<Record_t>& rs)
 {
     int len_cur_val = c.nd.val.length();
     int len_r_src_val = r.src.val.length();
     bool is_valid_propa = false;
+    bool is_local_mem = is_local_mem_addr(c);
+
     
-    // case 1: current dst node name MUST be same with record src name
-    if(c.nd.name == r.src.name){
-        if(c.nd.val == r.src.val)
-            is_valid_propa = true;
-        // if current dst node val contatins record src val
-        else if(len_cur_val > len_r_src_val && \
-                c.nd.val.find(r.src.val) != string::npos)
-            is_valid_propa = true;
-        // if record src val contains current dst node val
-        else if(len_cur_val < len_r_src_val && \
-                r.src.val.find(c.nd.val) != string::npos)
-            is_valid_propa = true;
-        // special case: tcg add
-        else if(r.src.flag == TCG_ADD)
-            is_valid_propa = true;
-        // special case: tcg xor
-        // if current node's next record is a xor
-        else if(rs[c.idx + 1].src.flag == TCG_XOR)
+    if(!is_local_mem){
+        // case 1: current dst node name MUST be same with record src name
+        if(c.nd.name == r.src.name){
+            if(c.nd.val == r.src.val)
+                is_valid_propa = true;
+            // if current dst node val contatins record src val
+            else if(len_cur_val > len_r_src_val && \
+                    c.nd.val.find(r.src.val) != string::npos)
+                is_valid_propa = true;
+            // if record src val contains current dst node val
+            else if(len_cur_val < len_r_src_val && \
+                    r.src.val.find(c.nd.val) != string::npos)
+                is_valid_propa = true;
+            // special case: tcg add
+            else if(r.src.flag == TCG_ADD)
+                is_valid_propa = true;
+            // special case: tcg xor
+            // if current node's next record is a xor
+            else if(rs[c.idx + 1].src.flag == TCG_XOR)
+                is_valid_propa = true;
+        }
+        // case 2: load pointer, value as name
+        // val len should large than 7 (addr)
+        else if(c.nd.val == r.src.name && \
+                c.nd.val.length() >= 7)
             is_valid_propa = true;
     }
-    // case 2: load pointer, value as name
-    // val len should large than 7 (addr)
-    else if(c.nd.val == r.src.name && \
-            c.nd.val.length() >= 7)
-        is_valid_propa = true;
+    // local mem node only <name val> are same
+    // consider as valid
+    else{
+        if(c.nd.name == r.src.name && c.nd.val == r.src.val)
+            is_valid_propa = true;
+    }
 
-    if(is_valid_propa)
-        num_propa++;
-    
     return is_valid_propa;
 }
 
 // determines if it needs to push the final result given flag of within same
 // insn, and number of valid propagations hits
-bool push_to_res(bool& within_insn, int& num_propa){
+bool is_push_to_res(bool& within_insn, int& num_propa){
     bool is_push_res = false;
 
-    // if with in same insn, can have multiple valid propagations,
+    // if within same insn, can have multiple valid propagations,
     // always push
     if(within_insn)
         is_push_res = true;
     // if not within same insn, can ONLY has one valid propagation
     // outside the guest insn
     else
-        if(num_propa == 1)
+        if(num_propa < 1)
             is_push_res = true;
     
     return is_push_res;
+}
+
+// determins if a node is a local memory addr
+inline bool is_local_mem_addr(struct Node_Propagate_t& n){
+    // if name starts with 'b' and length large than 7
+    // consider a local mem addr
+    if(n.nd.name[0] == 'b' &&
+       n.nd.name.length() >= 7)
+        return true;
+
+    return false;
+}
+
+// if a src node in current queue, push its direct dst node into queue
+// except both <name val> are same, ignore 
+Node_Propagate_t propag_dirt_dst_node(Node_Propagate_t& curr_nd,
+                                      vector<Record_t>& rs){
+    int i = curr_nd.idx;
+    struct Node_Propagate_t next_nd;
+
+    // if both <name val> are same, ignore
+
+    next_nd.p_id = curr_nd.id;
+    next_nd.id = curr_nd.id + 1;
+    next_nd.layer = curr_nd.layer + 1;
+    next_nd.idx = i;
+    next_nd.is_src = false;
+    next_nd.insn_addr = get_insn_addr(i, rs);
+
+    next_nd.nd.flag = rs[i].dst.flag;
+    next_nd.nd.name = rs[i].dst.name;
+    next_nd.nd.val = rs[i].dst.val;
+    
+    return next_nd;
+}
+
+// propagate from dst node to rest src node in records
+Node_Propagate_t propag_to_src_node(Node_Propagate_t& curr_nd,
+                                    vector<Record_t>& rs,
+                                    int i)
+{
+    struct Node_Propagate_t next_nd;
+
+    next_nd.p_id = curr_nd.id;
+    next_nd.id = i * 2;
+    next_nd.layer = curr_nd.layer + 1;
+    next_nd.idx = i;
+    next_nd.is_src = true;
+    next_nd.insn_addr = get_insn_addr(i, rs);
+
+    next_nd.nd.flag = rs[i].src.flag;
+    next_nd.nd.name = rs[i].src.name;
+    next_nd.nd.val = rs[i].src.val;
+
+    return next_nd;
 }
