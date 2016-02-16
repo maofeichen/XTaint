@@ -33,11 +33,11 @@ struct Node_Propagate_t {
     bool is_src;
     struct Node_t nd;
 
-    friend bool operator<(Node_Propagate_t a,
-                          Node_Propagate_t b) 
-    {
-        return a.id > b.id;
-    }
+    /* friend bool operator<(Node_Propagate_t a, */
+    /*                       Node_Propagate_t b)  */
+    /* { */
+    /*     return a.id > b.id; */
+    /* } */
 };
 
 void read_xtlog(std::ifstream&, std::vector<Record_t>&);

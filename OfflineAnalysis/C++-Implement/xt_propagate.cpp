@@ -5,6 +5,7 @@
  * that the source can propagate to, level by level
  */
 
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <queue>
@@ -23,7 +24,7 @@ const char* XTLOG_PATH =                                    \
 void open_xtlog(vector<Record_t>&);
 void propagate(struct Node_t, vector<Record_t>&);
 vector<Node_Propagate_t> bfs(vector<Record_t>&,
-                             priority_queue<Node_Propagate_t>&,
+                             vector<Node_Propagate_t>&,
                              queue<Node_Propagate_t>&);
 
 inline string get_insn_addr(int idx, vector<Record_t>&);
@@ -35,6 +36,9 @@ Node_Propagate_t propag_dirt_dst_node(Node_Propagate_t&, vector<Record_t>&);
 Node_Propagate_t propag_to_src_node(Node_Propagate_t&,
                                     vector<Record_t>&,
                                     int);
+
+void insert_mem_node(vector<Node_Propagate_t>&, Node_Propagate_t&, int&);
+bool compa_mem_node(const Node_Propagate_t&, const Node_Propagate_t&);
 
 int main()
 {
@@ -92,7 +96,7 @@ void propagate(struct Node_t src, vector<Record_t>& rs)
     struct Node_Propagate_t hit;
     vector<Node_Propagate_t> res;
     queue<Node_Propagate_t> q_propa;
-    priority_queue<Node_Propagate_t> q_mem_propa;
+    vector<Node_Propagate_t> q_mem_propa;
     
     // searches the src node in XTaint records (first hit)
     for(vector<Record_t>::iterator i = rs.begin(); i != rs.end(); ++i) {
@@ -124,7 +128,7 @@ void propagate(struct Node_t src, vector<Record_t>& rs)
 
                 is_local_mem = is_local_mem_addr(hit);
                 if(is_local_mem)
-                    q_mem_propa.push(hit);
+                    q_mem_propa.push_back(hit);
                 else
                     q_propa.push(hit);
                 break;
@@ -166,7 +170,7 @@ void propagate(struct Node_t src, vector<Record_t>& rs)
 }
 
 vector<Node_Propagate_t> bfs(vector<Record_t>& rs,
-                             priority_queue<Node_Propagate_t>& q_mem_propa,
+                             vector<Node_Propagate_t>& q_mem_propa,
                              queue<Node_Propagate_t>& q_propa)
 {
     vector<Node_Propagate_t> res;
@@ -230,10 +234,10 @@ vector<Node_Propagate_t> bfs(vector<Record_t>& rs,
 
                             // if a local mem node, always push to mem queue
                             is_local_mem = is_local_mem_addr(next_nd);
-                            if(is_local_mem){
-                                q_mem_propa.push(next_nd);
-                                num_propa++;
-                            }
+                            if(is_local_mem)
+                                insert_mem_node(q_mem_propa, next_nd, num_propa);
+                                // q_mem_propa.push(next_nd);
+                                // num_propa++;
                             else{
                                 // even it might be a valid propagation,
                                 // but need to determin if push to regular queue
@@ -258,26 +262,29 @@ vector<Node_Propagate_t> bfs(vector<Record_t>& rs,
             q_propa.pop();
         }
 
-        // begin to process mem queue
-        curr_nd = q_mem_propa.top();
-        res.push_back(curr_nd);
+        if(!q_mem_propa.empty() ){
+            // begin to process mem queue
+            curr_nd = q_mem_propa[0];
+            res.push_back(curr_nd);
 
-        // mem queue only containt nodes are in src
-        if(curr_nd.is_src){
-            j = curr_nd.idx;
-            // if both <name val> are same, ignore
-            if(rs[j].src.name != rs[j].dst.name || \
-               rs[j].src.val != rs[j].dst.val){
-                next_nd = propag_dirt_dst_node(curr_nd, rs);
+            // mem queue only containt nodes are in src
+            if(curr_nd.is_src){
+                j = curr_nd.idx;
+                // if both <name val> are same, ignore
+                if(rs[j].src.name != rs[j].dst.name || \
+                   rs[j].src.val != rs[j].dst.val){
+                    next_nd = propag_dirt_dst_node(curr_nd, rs);
 
-                // a dst node, even it's in local mem,
-                // NO need store in mem queue
-                q_propa.push(next_nd);
-                num_propa++;
+                    // a dst node, even it's in local mem,
+                    // NO need store in mem queue
+                    q_propa.push(next_nd);
+                    num_propa++;
+                }
             }
+
+            // q_mem_propa.pop();
+            q_mem_propa.erase(q_mem_propa.begin() );
         }
-        
-        q_mem_propa.pop();
 
         if(!q_propa.empty() )
             goto l_proc_q_propa;
@@ -352,7 +359,8 @@ inline bool is_valid_propagate(struct Node_Propagate_t& c,
 
 // determines if it needs to push the final result given flag of within same
 // insn, and number of valid propagations hits
-bool is_push_to_res(bool& within_insn, int& num_propa){
+bool is_push_to_res(bool& within_insn, int& num_propa)
+{
     bool is_push_res = false;
 
     // if within same insn, can have multiple valid propagations,
@@ -369,7 +377,8 @@ bool is_push_to_res(bool& within_insn, int& num_propa){
 }
 
 // determins if a node is a local memory addr
-inline bool is_local_mem_addr(struct Node_Propagate_t& n){
+inline bool is_local_mem_addr(struct Node_Propagate_t& n)
+{
     // if name starts with 'b' and length large than 7
     // consider a local mem addr
     if(n.nd.name[0] == 'b' &&
@@ -382,7 +391,8 @@ inline bool is_local_mem_addr(struct Node_Propagate_t& n){
 // if a src node in current queue, push its direct dst node into queue
 // except both <name val> are same, ignore 
 Node_Propagate_t propag_dirt_dst_node(Node_Propagate_t& curr_nd,
-                                      vector<Record_t>& rs){
+                                      vector<Record_t>& rs)
+{
     int i = curr_nd.idx;
     struct Node_Propagate_t next_nd;
 
@@ -421,4 +431,32 @@ Node_Propagate_t propag_to_src_node(Node_Propagate_t& curr_nd,
     next_nd.nd.val = rs[i].src.val;
 
     return next_nd;
+}
+
+
+// compare two local memory nodes
+// return: true if which id is smaller
+bool compa_mem_node(const Node_Propagate_t& a, const Node_Propagate_t& b)
+{
+    return a.id < b.id; 
+}
+
+// insert a local memory node
+void insert_mem_node(vector<Node_Propagate_t>& q_mem_propa, Node_Propagate_t& nd, int& num_propa)
+{
+    bool has_node = false;
+
+    // if alreay has the memory node, no need to insert
+    for(vector<Node_Propagate_t>::iterator it = q_mem_propa.begin();
+        it != q_mem_propa.end(); ++it){
+        if(it->id == nd.id)
+            has_node = true;
+    }
+
+    if(!has_node){
+        q_mem_propa.push_back(nd);
+        num_propa++;
+        // sort by id
+        sort(q_mem_propa.begin(), q_mem_propa.end(), compa_mem_node);
+    }
 }
