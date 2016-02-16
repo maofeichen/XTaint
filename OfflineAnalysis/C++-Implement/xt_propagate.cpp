@@ -18,8 +18,11 @@ using namespace std;
 // const char* XTLOG_PATH =                                  \
 //     "test-aes-128-single-block-with-size-mark-refine.txt";
 
+// const char* XTLOG_PATH =                                    \
+//     "test-aes-single-block-temp_name-as-name-refine.txt";
+
 const char* XTLOG_PATH =                                    \
-    "test-aes-single-block-temp_name-as-name-refine.txt";
+    "test-aes-single-block-temp_name-as-name.txt";
 
 void open_xtlog(vector<Record_t>&);
 void propagate(struct Node_t, vector<Record_t>&);
@@ -350,7 +353,7 @@ inline bool is_valid_propagate(struct Node_Propagate_t& c,
     // local mem node only <name val> are same
     // consider as valid
     else{
-        if(c.nd.name == r.src.name && c.nd.val == r.src.val)
+        if(c.nd.name == r.src.name /* && c.nd.val == r.src.val*/)
             is_valid_propa = true;
     }
 
