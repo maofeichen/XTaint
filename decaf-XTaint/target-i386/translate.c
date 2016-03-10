@@ -4255,10 +4255,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     // debug
     // tcg_gen_debug_insn_start(pc_start);
 
-    // debug how qemu translates 0xb8(mov)
-    // if(pc_start == 0x80483ec){
-    //     printf("pc at 0x80483ec\n");
-    // }
+    // debug how qemu translates
+    if(pc_start == 0x80496dc){
+        printf("pc at 0x80496dc\n");
+    }
 #endif /* CONFIG_TCG_XTAINT */
     s->pc = pc_start;
     prefixes = 0;
@@ -4497,6 +4497,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             else
                 ot = dflag + OT_WORD;
 
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
+
             modrm = ldub_code(s->pc++);
             mod = (modrm >> 6) & 3;
             rm = (modrm & 7) | REX_B(s);
@@ -4526,6 +4535,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             }
             gen_op_movl_T1_im(val);
             gen_op(s, op, ot, opreg);
+
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_END, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
@@ -4558,6 +4576,17 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         } else {
             gen_op_mov_TN_reg(ot, 0, rm);
         }
+
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark &&
+                op != 2 &&
+                op != 3){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
 
         switch(op) {
         case 0: /* test */
@@ -4769,6 +4798,16 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         default:
             goto illegal_op;
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark &&
+                op != 2 &&
+                op != 3){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
     case 0xfe: /* GRP4 */
@@ -4803,6 +4842,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         } else {
             gen_op_mov_TN_reg(ot, 0, rm);
         }
+
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && op == 6){ // only for push
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
 
         switch(op) {
         case 0: /* inc Ev */
@@ -4877,12 +4925,20 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             }
             gen_eob(s);
             break;
-        case 6: /* push Ev */
+        case 6:  /* push Ev */
             gen_push_T0(s);
             break;
         default:
             goto illegal_op;
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && op == 6){ // only for push
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
     case 0x84: /* test Ev, Gv */
@@ -4892,6 +4948,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         else
             ot = dflag + OT_WORD;
 
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
+
         modrm = ldub_code(s->pc++);
         reg = ((modrm >> 3) & 7) | rex_r;
 
@@ -4899,6 +4964,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_op_mov_TN_reg(ot, 1, reg);
         gen_op_testl_T0_T1_cc();
         s->cc_op = CC_OP_LOGICB + ot;
+
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
     case 0xa8: /* test eAX, Iv */
@@ -4907,12 +4981,31 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
+
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
+
         val = insn_get(s, ot);
 
         gen_op_mov_TN_reg(ot, 0, OR_EAX);
         gen_op_movl_T1_im(val);
         gen_op_testl_T0_T1_cc();
         s->cc_op = CC_OP_LOGICB + ot;
+
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
     case 0x98: /* CWDE/CBW */
@@ -4928,9 +5021,17 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             tcg_gen_ext16s_tl(cpu_T[0], cpu_T[0]);
             gen_op_mov_reg_T0(OT_LONG, R_EAX);
         } else {
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
             gen_op_mov_TN_reg(OT_BYTE, 0, R_EAX);
             tcg_gen_ext8s_tl(cpu_T[0], cpu_T[0]);
             gen_op_mov_reg_T0(OT_WORD, R_EAX);
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
     case 0x99: /* CDQ/CWD */
@@ -4957,6 +5058,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     case 0x69: /* imul Gv, Ev, I */
     case 0x6b:
         ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         reg = ((modrm >> 3) & 7) | rex_r;
         if (b == 0x69)
@@ -5014,6 +5123,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         }
         gen_op_mov_reg_T0(ot, reg);
         s->cc_op = CC_OP_MULB + ot;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0x1c0:
     case 0x1c1: /* xadd Ev, Gv */
@@ -5021,6 +5138,16 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
+
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
+
         modrm = ldub_code(s->pc++);
         reg = ((modrm >> 3) & 7) | rex_r;
         mod = (modrm >> 6) & 3;
@@ -5041,6 +5168,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         }
         gen_op_update2_cc();
         s->cc_op = CC_OP_ADDB + ot;
+
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0x1b0:
     case 0x1b1: /* cmpxchg Ev, Gv */
@@ -5052,6 +5188,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 ot = OT_BYTE;
             else
                 ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             modrm = ldub_code(s->pc++);
             reg = ((modrm >> 3) & 7) | rex_r;
             mod = (modrm >> 6) & 3;
@@ -5100,9 +5244,22 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 #ifdef CONFIG_TCG_TAINT
             gen_helper_DECAF_taint_cmpxchg();
 #endif /* CONFIG_TCG_TAINT */
+
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_END, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
     case 0x1c7: /* cmpxchg8b */
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark)
+            gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         mod = (modrm >> 6) & 3;
         if ((mod == 3) || ((modrm & 0x38) != 0x8))
@@ -5128,6 +5285,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_helper_cmpxchg8b(cpu_A0);
         }
         s->cc_op = CC_OP_EFLAGS;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark)
+            gen_op_XT_mark(XT_SIZE_END, 8, 0);
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
         /**************************/
@@ -5142,10 +5303,18 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         } else {
             ot = dflag + OT_WORD;
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD)
+            gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
         gen_pop_T0(s);
         /* NOTE: order is important for pop %sp */
         gen_pop_update(s);
         gen_op_mov_reg_T0(ot, (b & 7) | REX_B(s));
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD)
+            gen_op_XT_mark(XT_SIZE_END, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0x60: /* pusha */
         if (CODE64(s))
@@ -5164,12 +5333,28 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         } else {
             ot = dflag + OT_WORD;
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(b == 0x68 && ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+            else if(b == 0x6a)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         if (b == 0x68)
             val = insn_get(s, ot);
         else
             val = (int8_t)insn_get(s, OT_BYTE);
         gen_op_movl_T0_im(val);
         gen_push_T0(s);
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(b == 0x68 && ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            else if(b == 0x6a)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0x8f: /* pop Ev */
         if (CODE64(s)) {
@@ -5177,6 +5362,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         } else {
             ot = dflag + OT_WORD;
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD){
+            gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         mod = (modrm >> 6) & 3;
         gen_pop_T0(s);
@@ -5192,6 +5382,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             s->popl_esp_hack = 0;
             gen_pop_update(s);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD){
+            gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xc8: /* enter */
         {
@@ -5281,11 +5476,27 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         reg = ((modrm >> 3) & 7) | rex_r;
 
         /* generate a generic store */
         gen_ldst_modrm(s, modrm, ot, reg, 1);
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xc6:
     case 0xc7: /* mov Ev, Iv */
@@ -5293,6 +5504,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         mod = (modrm >> 6) & 3;
         if (mod != 3) {
@@ -5305,6 +5524,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_op_st_T0_A0(ot + s->mem_index);
         else
             gen_op_mov_reg_T0(ot, (modrm & 7) | REX_B(s));
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0x8a:
     case 0x8b: /* mov Ev, Gv */
@@ -5312,13 +5539,33 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = OT_WORD + dflag;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         reg = ((modrm >> 3) & 7) | rex_r;
 
         gen_ldst_modrm(s, modrm, ot, OR_TMP0, 0);
         gen_op_mov_reg_T0(ot, reg);
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0x8e: /* mov seg, Gv */
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark)
+            gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         reg = (modrm >> 3) & 7;
         if (reg >= 6 || reg == R_CS)
@@ -5337,8 +5584,16 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_jmp_im(s->pc - s->cs_base);
             gen_eob(s);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark)
+            gen_op_XT_mark(XT_SIZE_END, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0x8c: /* mov Gv, seg */
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark)
+            gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         reg = (modrm >> 3) & 7;
         mod = (modrm >> 6) & 3;
@@ -5350,6 +5605,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         else
             ot = OT_WORD;
         gen_ldst_modrm(s, modrm, ot, OR_TMP0, 1);
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark)
+            gen_op_XT_mark(XT_SIZE_END, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
     case 0x1b6: /* movzbS Gv, Eb */
@@ -5360,6 +5619,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             int d_ot;
             /* d_ot is the size of destination */
             d_ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark && d_ot == OT_WORD){
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             /* ot is the size of source */
             ot = (b & 1) + OT_BYTE;
             modrm = ldub_code(s->pc++);
@@ -5394,11 +5658,20 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 }
                 gen_op_mov_reg_T0(d_ot, reg);
             }
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark && d_ot == OT_WORD){
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
     case 0x8d: /* lea */
         ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD)
+            gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         mod = (modrm >> 6) & 3;
         if (mod == 3)
@@ -5411,6 +5684,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_lea_modrm(s, modrm, &reg_addr, &offset_addr);
         s->addseg = val;
         gen_op_mov_reg_A0(ot - OT_WORD, reg);
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD)
+            gen_op_XT_mark(XT_SIZE_END, 16, 0);
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
     case 0xa0: /* mov EAX, Ov */
@@ -5424,6 +5701,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 ot = OT_BYTE;
             else
                 ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
 #ifdef TARGET_X86_64
             if (s->aflag == 2) {
                 offset_addr = ldq_code(s->pc);
@@ -5447,6 +5732,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 gen_op_mov_TN_reg(ot, 0, R_EAX);
                 gen_op_st_T0_A0(ot + s->mem_index);
             }
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_END, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
     case 0xd7: /* xlat */
@@ -5459,6 +5752,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         } else
 #endif
         {
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             gen_op_movl_A0_reg(R_EBX);
             gen_op_mov_TN_reg(OT_LONG, 0, R_EAX);
             tcg_gen_andi_tl(cpu_T[0], cpu_T[0], 0xff);
@@ -5471,11 +5769,26 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_add_A0_ds_seg(s);
         gen_op_ldu_T0_A0(OT_BYTE + s->mem_index);
         gen_op_mov_reg_T0(OT_BYTE, R_EAX);
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            gen_op_XT_mark(XT_SIZE_END, 8, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xb0 ... 0xb7: /* mov R, Ib */
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         val = insn_get(s, OT_BYTE);
         gen_op_movl_T0_im(val);
         gen_op_mov_reg_T0(OT_BYTE, (b & 7) | REX_B(s));
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            gen_op_XT_mark(XT_SIZE_END, 8, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xb8 ... 0xbf: /* mov R, Iv */
 #ifdef TARGET_X86_64
@@ -5491,16 +5804,31 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 #endif
         {
             ot = dflag ? OT_LONG : OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark && ot == OT_WORD){
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             val = insn_get(s, ot);
             reg = (b & 7) | REX_B(s);
             gen_op_movl_T0_im(val);
             gen_op_mov_reg_T0(ot, reg);
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark && ot == OT_WORD){
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 
     case 0x91 ... 0x97: /* xchg R, EAX */
     do_xchg_reg_eax:
         ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD){
+            gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         reg = (b & 7) | REX_B(s);
         rm = R_EAX;
         goto do_xchg_reg;
@@ -5510,6 +5838,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         reg = ((modrm >> 3) & 7) | rex_r;
         mod = (modrm >> 6) & 3;
@@ -5520,6 +5856,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_op_mov_TN_reg(ot, 1, rm);
             gen_op_mov_reg_T0(ot, rm);
             gen_op_mov_reg_T1(ot, reg);
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark && ot == OT_WORD){
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         } else {
             gen_lea_modrm(s, modrm, &reg_addr, &offset_addr);
             gen_op_mov_TN_reg(ot, 0, reg);
@@ -5531,6 +5872,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             if (!(prefixes & PREFIX_LOCK))
                 gen_helper_unlock();
             gen_op_mov_reg_T1(ot, reg);
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
     case 0xc4: /* les Gv */
@@ -5553,6 +5902,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         op = R_GS;
     do_lxx:
         ot = dflag ? OT_LONG : OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD){
+            gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         reg = ((modrm >> 3) & 7) | rex_r;
         mod = (modrm >> 6) & 3;
@@ -5570,6 +5924,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_jmp_im(s->pc - s->cs_base);
             gen_eob(s);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD){
+            gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
         /************************/
@@ -5584,7 +5943,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 ot = OT_BYTE;
             else
                 ot = dflag + OT_WORD;
-
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             modrm = ldub_code(s->pc++);
             mod = (modrm >> 6) & 3;
             op = (modrm >> 3) & 7;
@@ -5608,6 +5974,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 }
                 gen_shifti(s, op, ot, opreg, shift);
             }
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark){
+                if(ot == OT_BYTE)
+                    gen_op_XT_mark(XT_SIZE_END, 8, 0);
+                else if(ot == OT_WORD)
+                    gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
     case 0xd0:
@@ -5638,6 +6012,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         shift = 0;
     do_shiftd:
         ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD){
+            gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         modrm = ldub_code(s->pc++);
         mod = (modrm >> 6) & 3;
         rm = (modrm & 7) | REX_B(s);
@@ -5657,6 +6036,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             tcg_gen_mov_tl(cpu_T3, cpu_regs[R_ECX]);
         }
         gen_shiftd_rm_T1_T3(s, ot, opreg, op);
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark && ot == OT_WORD){
+            gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
         /************************/
@@ -6190,12 +6574,27 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
-
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         if (prefixes & (PREFIX_REPZ | PREFIX_REPNZ)) {
             gen_repz_movs(s, ot, pc_start - s->cs_base, s->pc - s->cs_base);
         } else {
             gen_movs(s, ot);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
     case 0xaa: /* stosS */
@@ -6204,12 +6603,27 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
-
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         if (prefixes & (PREFIX_REPZ | PREFIX_REPNZ)) {
             gen_repz_stos(s, ot, pc_start - s->cs_base, s->pc - s->cs_base);
         } else {
             gen_stos(s, ot);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xac: /* lodsS */
     case 0xad:
@@ -6217,11 +6631,27 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         if (prefixes & (PREFIX_REPZ | PREFIX_REPNZ)) {
             gen_repz_lods(s, ot, pc_start - s->cs_base, s->pc - s->cs_base);
         } else {
             gen_lods(s, ot);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xae: /* scasS */
     case 0xaf:
@@ -6229,6 +6659,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         if (prefixes & PREFIX_REPNZ) {
             gen_repz_scas(s, ot, pc_start - s->cs_base, s->pc - s->cs_base, 1);
         } else if (prefixes & PREFIX_REPZ) {
@@ -6237,6 +6675,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_scas(s, ot);
             s->cc_op = CC_OP_SUBB + ot;
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
     case 0xa6: /* cmpsS */
@@ -6245,6 +6691,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         if (prefixes & PREFIX_REPNZ) {
             gen_repz_cmps(s, ot, pc_start - s->cs_base, s->pc - s->cs_base, 1);
         } else if (prefixes & PREFIX_REPZ) {
@@ -6253,6 +6707,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_cmps(s, ot);
             s->cc_op = CC_OP_SUBB + ot;
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0x6c: /* insS */
     case 0x6d:
@@ -6260,6 +6722,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag ? OT_LONG : OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         gen_op_mov_TN_reg(OT_WORD, 0, R_EDX);
         gen_op_andl_T0_ffff();
         gen_check_io(s, ot, pc_start - s->cs_base, 
@@ -6272,6 +6742,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 gen_jmp(s, s->pc - s->cs_base);
             }
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0x6e: /* outsS */
     case 0x6f:
@@ -6279,6 +6757,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag ? OT_LONG : OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         gen_op_mov_TN_reg(OT_WORD, 0, R_EDX);
         gen_op_andl_T0_ffff();
         gen_check_io(s, ot, pc_start - s->cs_base,
@@ -6291,6 +6777,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 gen_jmp(s, s->pc - s->cs_base);
             }
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
         /************************/
@@ -6302,6 +6796,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag ? OT_LONG : OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         val = ldub_code(s->pc++);
         gen_op_movl_T0_im(val);
         gen_check_io(s, ot, pc_start - s->cs_base,
@@ -6316,6 +6818,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_io_end();
             gen_jmp(s, s->pc - s->cs_base);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xe6:
     case 0xe7:
@@ -6323,6 +6833,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag ? OT_LONG : OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         val = ldub_code(s->pc++);
         gen_op_movl_T0_im(val);
         gen_check_io(s, ot, pc_start - s->cs_base,
@@ -6338,6 +6856,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_io_end();
             gen_jmp(s, s->pc - s->cs_base);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xec:
     case 0xed:
@@ -6345,6 +6871,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag ? OT_LONG : OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         gen_op_mov_TN_reg(OT_WORD, 0, R_EDX);
         gen_op_andl_T0_ffff();
         gen_check_io(s, ot, pc_start - s->cs_base,
@@ -6358,6 +6892,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_io_end();
             gen_jmp(s, s->pc - s->cs_base);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
     case 0xee:
     case 0xef:
@@ -6365,6 +6907,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = OT_BYTE;
         else
             ot = dflag ? OT_LONG : OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         gen_op_mov_TN_reg(OT_WORD, 0, R_EDX);
         gen_op_andl_T0_ffff();
         gen_check_io(s, ot, pc_start - s->cs_base,
@@ -6380,6 +6930,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_io_end();
             gen_jmp(s, s->pc - s->cs_base);
         }
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_size_mark){
+            if(ot == OT_BYTE)
+                gen_op_XT_mark(XT_SIZE_END, 8, 0);
+            else if(ot == OT_WORD)
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         break;
 
         /************************/
@@ -6554,6 +7112,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             TCGv t0;
 
             ot = dflag + OT_WORD;
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark && ot == OT_WORD){
+                gen_op_XT_mark(XT_SIZE_BEGIN, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             modrm = ldub_code(s->pc++);
             reg = ((modrm >> 3) & 7) | rex_r;
             mod = (modrm >> 6) & 3;
@@ -6582,6 +7145,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 gen_set_label(l1);
             }
             tcg_temp_free(t0);
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_size_mark && ot == OT_WORD){
+                gen_op_XT_mark(XT_SIZE_END, 16, 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         break;
 

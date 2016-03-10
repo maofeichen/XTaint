@@ -509,14 +509,15 @@ void REGPARM __taint_stq_raw(unsigned long addr, gva_t vaddr) {
 #ifdef CONFIG_TCG_XTAINT
 void XT_write_tmp(){
     register int ebp asm("ebp");
+    int offset = 16;
 
-    uint32_t *des_val = (uint32_t *) (ebp + 16);
-    uint32_t *des_addr = (uint32_t *) (ebp + 20);
-    uint8_t *des_flag = (uint8_t *) (ebp + 24);
+    uint32_t *des_val = (uint32_t *) (ebp + offset);
+    uint32_t *des_addr = (uint32_t *) (ebp + offset + 4);
+    uint8_t *des_flag = (uint8_t *) (ebp + offset + 8);
 
-    uint32_t *src_val = (uint32_t *) (ebp + 28);
-    uint32_t *src_addr = (uint32_t *) (ebp + 32);
-    uint8_t *src_flag = (uint8_t *) (ebp + 36);
+    uint32_t *src_val = (uint32_t *) (ebp + offset + 12);
+    uint32_t *src_addr = (uint32_t *) (ebp + offset + 16);
+    uint8_t *src_flag = (uint8_t *) (ebp + offset + 20);
 
     *xt_ptr_curr_record++ = *src_flag;
     *(uint32_t *) xt_ptr_curr_record = *src_addr;
@@ -553,6 +554,10 @@ void XT_write_mark(){
     val1 = (uint32_t *) (ebp + offset_ebp + sz);
     *(uint32_t *) xt_ptr_curr_record = *val1;
     xt_ptr_curr_record += sz;
+
+    // debug
+    if(*val1 == 0x80496dc)
+        printf("guest insn is: %d", *val1);
 
     // log 3rd value
     // the format of record is <flag, addr, val>, but no value here, use 0

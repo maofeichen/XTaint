@@ -1951,6 +1951,7 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
 
     TCGReg src_shadow_reg;
 
+    // use eax as temp, push first
     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
     esp_offset += 4;
 
@@ -1984,7 +1985,7 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                     flag = TCG_QEMU_LD;
                 else
                     flag = 0;
-                XT_log_tmp_ld(s, args, ts, ots, flag, &esp_offset);
+                XT_log_tmp_ld(s, args, ts, ots, ots_idx, flag, &esp_offset);
                 XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
             }else if(flag == XT_ST){
                 if(xt_encode_tcg_ir)
@@ -1992,7 +1993,7 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                 else
                     flag = 0;
                 XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
-                XT_log_tmp_st(s, args, ts, ots, flag, &esp_offset);
+                XT_log_tmp_st(s, args, ts, ots, ts_idx, flag, &esp_offset);
             }else{
                 XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
                 XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
@@ -2024,7 +2025,7 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                     flag = TCG_QEMU_LD;
                 else
                     flag = 0;
-                XT_log_tmp_ld(s, args, ts, ots, flag, &esp_offset);
+                XT_log_tmp_ld(s, args, ts, ots, ots_idx, flag, &esp_offset);
                 XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
             }else if(flag == XT_ST){
                 if(xt_encode_tcg_ir)
@@ -2032,7 +2033,7 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                 else
                     flag = 0;
                 XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
-                XT_log_tmp_st(s, args, ts, ots, flag, &esp_offset);
+                XT_log_tmp_st(s, args, ts, ots, ts_idx, flag, &esp_offset);
             }else{
                 XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
                 XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
@@ -2056,7 +2057,7 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                         flag = TCG_QEMU_LD;
                     else
                         flag = 0;
-                    XT_log_tmp_ld(s, args, ts, ots, flag, &esp_offset);
+                    XT_log_tmp_ld(s, args, ts, ots, ots_idx, flag, &esp_offset);
                     XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
                 }else if(flag == XT_ST){
                     if(xt_encode_tcg_ir)
@@ -2064,7 +2065,7 @@ static inline void tcg_out_XT_log_ir(TCGContext *s, const TCGArg *args){
                     else
                         flag = 0;
                     XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
-                    XT_log_tmp_st(s, args, ts, ots, flag, &esp_offset);
+                    XT_log_tmp_st(s, args, ts, ots, ts_idx, flag, &esp_offset);
                 }else{
                     XT_log_tmp(s, args, ts, flag, ts_idx, &esp_offset);
                     XT_log_tmp(s, args, ots, flag, ots_idx, &esp_offset);
@@ -2111,8 +2112,9 @@ inline void XT_log_tmp(TCGContext *s,
             *esp_offset += 4;
 
             // save addr
-            // use temporary name as record name: 1) for global tmp, use the
-            // name member 2) rest use idx - num of globals
+            // use temporary name as record name:
+            //    1) for global tmp, use the name member
+            //    2) rest use idx - num of globals
             if(tmp_idx < s->nb_globals){
                 reg_idx = get_global_temp_reg_idx(s, tmp);
                 tcg_out_pushi(s, reg_idx);
@@ -2164,6 +2166,18 @@ inline void XT_log_tmp(TCGContext *s,
 //            tcg_out_pushi(s, tmp->reg);
 //            *esp_offset += 4;
 
+            // take specail case for eax, due to eax now had been occupied
+            // to stroe the source shadow, its real value had been push to stack
+            //     1) 4 is the index of reg esp (esp base),
+            //     2) esp_offset is accumulated offset so far
+            //     3) -4 is due to eax is the first push in this routine
+//            if(tmp_idx < s->nb_globals && \
+//               (strcmp(tmp->name, "eax") == 0) ){
+//                tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+//                            4, tmp->mem_offset + *esp_offset - 4);
+//                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//            } else
+//                tcg_out_push(s, tmp->reg);
             tcg_out_push(s, tmp->reg);
             *esp_offset += 4;
         }
@@ -2199,6 +2213,7 @@ inline void XT_log_tmp_ld(TCGContext *s,
                           TCGArg *args,
                           TCGTemp *ts,
                           TCGTemp *ots,
+                          int ots_idx,
                           uint8_t flag,
                           int *esp_offset){
     switch(ts->val_type){
@@ -2242,6 +2257,13 @@ inline void XT_log_tmp_ld(TCGContext *s,
                 }
                     break;
                 case TEMP_VAL_REG:{
+//                    if(ots_idx < s->nb_globals && \
+//                            (strcmp(ots->name, "eax") == 0) ){
+//                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+//                                    4, ots->mem_offset + *esp_offset - 4);
+//                        tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//                    } else
+//                        tcg_out_push(s, ots->reg);
                     tcg_out_push(s, ots->reg);
                     *esp_offset += 4;
                 }
@@ -2283,6 +2305,13 @@ inline void XT_log_tmp_ld(TCGContext *s,
                 }
                     break;
                 case TEMP_VAL_REG:{
+//                    if(ots_idx < s->nb_globals && \
+//                            (strcmp(ots->name, "eax") == 0) ){
+//                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+//                                    4, ots->mem_offset + *esp_offset - 4);
+//                        tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//                    } else
+//                        tcg_out_push(s, ots->reg);
                     tcg_out_push(s, ots->reg);
                     *esp_offset += 4;
                 }
@@ -2321,6 +2350,13 @@ inline void XT_log_tmp_ld(TCGContext *s,
                 }
                     break;
                 case TEMP_VAL_REG:{
+//                    if(ots_idx < s->nb_globals && \
+//                            (strcmp(ots->name, "eax") == 0) ){
+//                        tcg_out_ld(s, ots->type, tcg_target_call_iarg_regs[0],
+//                                    4, ots->mem_offset + *esp_offset - 4);
+//                        tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//                    } else
+//                        tcg_out_push(s, ots->reg);
                     tcg_out_push(s, ots->reg);
                     *esp_offset += 4;
                 }
@@ -2347,6 +2383,7 @@ inline void XT_log_tmp_st(TCGContext *s,
                           TCGArg *args,
                           TCGTemp *ts,
                           TCGTemp *ots,
+                          int ts_idx,
                           uint8_t flag,
                           int *esp_offset){
     switch(ts->val_type){
@@ -2431,7 +2468,14 @@ inline void XT_log_tmp_st(TCGContext *s,
                     break;
             }
             // log val
-            tcg_out_push(s, ts->reg);
+//            if(ts_idx < s->nb_globals && \
+//                    (strcmp(ts->name, "eax") == 0) ){
+//                tcg_out_ld(s, ts->type, tcg_target_call_iarg_regs[0],
+//                            4, ts->mem_offset + *esp_offset - 4);
+//                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//            } else
+//                tcg_out_push(s, ts->reg);
+             tcg_out_push(s, ts->reg);
             *esp_offset += 4;
         }
             break;
