@@ -2163,22 +2163,23 @@ inline void XT_log_tmp(TCGContext *s,
                 tcg_out_pushi(s, tmp_idx - s->nb_globals);
             *esp_offset += 4;
 
-//            tcg_out_pushi(s, tmp->reg);
-//            *esp_offset += 4;
-
             // take specail case for eax, due to eax now had been occupied
             // to stroe the source shadow, its real value had been push to stack
             //     1) 4 is the index of reg esp (esp base),
             //     2) esp_offset is accumulated offset so far
             //     3) -4 is due to eax is the first push in this routine
+
+            // incorrect if
 //            if(tmp_idx < s->nb_globals && \
 //               (strcmp(tmp->name, "eax") == 0) ){
-//                tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
-//                            4, tmp->mem_offset + *esp_offset - 4);
-//                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-//            } else
-//                tcg_out_push(s, tmp->reg);
-            tcg_out_push(s, tmp->reg);
+            if(tmp->reg == tcg_target_call_iarg_regs[0]){
+                tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+                            4, *esp_offset - 4);
+                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+            } else
+                tcg_out_push(s, tmp->reg);
+//            tcg_out_push(s, tmp->reg);
+
             *esp_offset += 4;
         }
         break;
