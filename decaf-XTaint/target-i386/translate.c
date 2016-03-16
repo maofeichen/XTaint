@@ -4256,9 +4256,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     // tcg_gen_debug_insn_start(pc_start);
 
     // debug how qemu translates
-    if(pc_start == 0x80496dc){
-        printf("pc at 0x80496dc\n");
-    }
+//    if(pc_start == 0x80496dc){
+//        printf("pc at 0x80496dc\n");
+//    }
+
+    tcg_target_long curr_eip, curr_esp;
 #endif /* CONFIG_TCG_XTAINT */
     s->pc = pc_start;
     prefixes = 0;
@@ -4872,12 +4874,20 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             if (s->dflag == 0)
                 gen_op_andl_T0_ffff();
             next_eip = s->pc - s->cs_base;
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark)
+                gen_op_XT_mark(XT_INSN_CALL, next_eip, 0);
+#endif /* CONFIG_TCG_XTAINT */
             gen_movtl_T1_im(next_eip);
             gen_push_T1(s);
             gen_op_jmp_T0();
             gen_eob(s);
             break;
         case 3: /* lcall Ev */
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark)
+                gen_op_XT_mark(XT_INSN_CALL, 0, 0);
+#endif /* CONFIG_TCG_XTAINT */
             gen_op_ld_T1_A0(ot + s->mem_index);
             gen_add_A0_im(s, 1 << (ot - OT_WORD + 1));
             gen_op_ldu_T0_A0(OT_WORD + s->mem_index);
@@ -6943,6 +6953,13 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         /************************/
         /* control */
     case 0xc2: /* ret im */
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_func_call_mark){
+            curr_eip = cpu_single_env->eip;
+            curr_esp = cpu_single_env->regs[R_ESP];
+            gen_op_XT_mark(XT_INSN_RET, curr_eip, curr_esp);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         val = ldsw_code(s->pc);
         s->pc += 2;
         gen_pop_T0(s);
@@ -6956,6 +6973,13 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_eob(s);
         break;
     case 0xc3: /* ret */
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_func_call_mark){
+            curr_eip = cpu_single_env->eip;
+            curr_esp = cpu_single_env->regs[R_ESP];
+            gen_op_XT_mark(XT_INSN_RET, curr_eip, curr_esp);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         gen_pop_T0(s);
         gen_pop_update(s);
         if (s->dflag == 0)
@@ -6965,6 +6989,13 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_eob(s);
         break;
     case 0xca: /* lret im */
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_func_call_mark){
+            curr_eip = cpu_single_env->eip;
+            curr_esp = cpu_single_env->regs[R_ESP];
+            gen_op_XT_mark(XT_INSN_RET, curr_eip, curr_esp);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         val = ldsw_code(s->pc);
         s->pc += 2;
     do_lret:
@@ -6993,6 +7024,13 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_eob(s);
         break;
     case 0xcb: /* lret */
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_func_call_mark){
+            curr_eip = cpu_single_env->eip;
+            curr_esp = cpu_single_env->regs[R_ESP];
+            gen_op_XT_mark(XT_INSN_RET, curr_eip, curr_esp);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         val = 0;
         goto do_lret;
     case 0xcf: /* iret */
@@ -7030,6 +7068,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 tval &= 0xffff;
             else if(!CODE64(s))
                 tval &= 0xffffffff;
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark)
+                gen_op_XT_mark(XT_INSN_CALL, tval, 0);
+#endif /* CONFIG_TCG_XTAINT */
             gen_movtl_T0_im(next_eip);
             gen_push_T0(s);
             gen_jmp(s, tval);
@@ -7044,7 +7086,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = dflag ? OT_LONG : OT_WORD;
             offset = insn_get(s, ot);
             selector = insn_get(s, OT_WORD);
-
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark)
+                gen_op_XT_mark(XT_INSN_CALL, 0, 0);
+#endif /* CONFIG_TCG_XTAINT */
             gen_op_movl_T0_im(selector);
             gen_op_movl_T1_imu(offset);
         }

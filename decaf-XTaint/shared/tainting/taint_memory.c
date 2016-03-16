@@ -38,6 +38,7 @@ int xt_enable_log_ir = 0;
 int xt_enable_debug = 0;
 int xt_encode_tcg_ir = 1;
 int xt_enable_size_mark = 0;
+int xt_enable_func_call_mark = 0;
 
 uint8_t xt_pool[XT_MAX_POOL_SIZE];
 uint8_t *xt_ptr_curr_record = xt_pool;
@@ -52,7 +53,9 @@ void xt_flush_file(FILE *xt_log) {
         if(*i_ptr == XT_INSN_ADDR || \
            *i_ptr == XT_TCG_DEPOSIT || \
            *i_ptr == XT_SIZE_BEGIN || \
-           *i_ptr == XT_SIZE_END){
+           *i_ptr == XT_SIZE_END || \
+           *i_ptr == XT_INSN_CALL || \
+           *i_ptr == XT_INSN_RET){
             fprintf(xt_log, "%x\t", *i_ptr++);              // flag
             fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);   // 1st arg
             i_ptr += 4;
@@ -616,6 +619,22 @@ int xt_do_size_mark(Monitor *mon, const QDict *qdict, QObject **ret_data){
         DECAF_start_vm();
         tb_flush(env);
         monitor_printf(default_mon, "xt size mark changed -> %s\n",
+                xt_enable_size_mark ? "ON " : "OFF");
+    }
+    return 0;
+}
+
+int xt_do_func_call_mark(Monitor *mon, const QDict *qdict, QObject **ret_data){
+    if (!taint_tracking_enabled)
+        monitor_printf(default_mon, "Ignored, taint tracking is disabled\n");
+    else {
+        CPUState *env;
+        DECAF_stop_vm();
+        env = cpu_single_env ? cpu_single_env : first_cpu;
+        xt_enable_func_call_mark = qdict_get_bool(qdict, "load");
+        DECAF_start_vm();
+        tb_flush(env);
+        monitor_printf(default_mon, "xt function call mark changed -> %s\n",
                 xt_enable_size_mark ? "ON " : "OFF");
     }
     return 0;

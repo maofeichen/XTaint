@@ -145,6 +145,13 @@ http://code.google.com/p/decaf-platform/
         .help       = "Turn on/off xtaint size mark for each guest insn",
         .mhandler.cmd_new = xt_do_size_mark,
 },
+{
+        .name       = "xtaint_func_call_mark",
+        .args_type  = "load:b",
+        .params     = "on|off",
+        .help       = "Turn on/off xtaint function call mark",
+        .mhandler.cmd_new = xt_do_func_call_mark,
+},
 #endif /* CONFIG_TCG_XTAINT */
 #endif /* CONFIG_TCG_TAINT */
 
