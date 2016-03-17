@@ -15,14 +15,14 @@
 
 using namespace std;
 
-// const char* XTLOG_PATH =                                  \
-//     "test-aes-128-single-block-with-size-mark-refine.txt";
+const char* XTLOG_PATH =                                  \
+    "./Test-File/test-aes-128-oneblock-sizemark-refine.txt";
 
 // const char* XTLOG_PATH =                                    \
 //     "test-aes-single-block-temp_name-as-name-refine.txt";
 
-const char* XTLOG_PATH =                                    \
-    "test-aes-single-block-temp_name-as-name.txt";
+// const char* XTLOG_PATH =                                    \
+//     "test-aes-single-block-temp_name-as-name.txt";
 
 void open_xtlog(vector<Record_t>&);
 void propagate(struct Node_t, vector<Record_t>&);
@@ -62,8 +62,8 @@ int main()
     // }
     
     s.flag = "34";
-    s.name = "bffff747";
-    s.val = "a8";
+    s.name = "bffff753";
+    s.val = "34";
     propagate(s, rs);
     
     return 0;
