@@ -455,6 +455,17 @@ static inline void gen_op_jmp_T0(void)
 
     tcg_gen_st_tl(cpu_T[0], cpu_env, offsetof(CPUState, eip));
 
+#ifdef CONFIG_TCG_XTAINT
+//        if(xt_enable_func_call_mark){
+            // curr_eip = cpu_single_env->eip;
+            // curr_eip = cpu_T[0];
+            // tcg_gen_st_tl(cpu_T[0], curr_eip, 0);
+//            TCGv curr_esp;
+//            curr_esp = cpu_single_env->regs[R_ESP];
+//            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
+//        }
+#endif /* CONFIG_TCG_XTAINT */
+
     //For DECAF_EIP_CHECK_CB -by Hu
 #ifdef CONFIG_TCG_TAINT
 	TCGv t1 = tcg_const_ptr(cur_pc);
@@ -4256,11 +4267,12 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     // tcg_gen_debug_insn_start(pc_start);
 
     // debug how qemu translates
-//    if(pc_start == 0x80496dc){
-//        printf("pc at 0x80496dc\n");
+//    if(pc_start == 0x80497ef){
+//        printf("pc at 0x80497ef\n");
 //    }
 
     tcg_target_long curr_eip, curr_esp;
+    static TCGv xt_esp;
 #endif /* CONFIG_TCG_XTAINT */
     s->pc = pc_start;
     prefixes = 0;
@@ -4874,23 +4886,33 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             if (s->dflag == 0)
                 gen_op_andl_T0_ffff();
             next_eip = s->pc - s->cs_base;
-#ifdef CONFIG_TCG_XTAINT
-            if(xt_enable_func_call_mark)
-                gen_op_XT_mark(XT_INSN_CALL, next_eip, 0);
-#endif /* CONFIG_TCG_XTAINT */
             gen_movtl_T1_im(next_eip);
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark){
+//                curr_eip = cpu_single_env->eip;
+//                gen_op_XT_mark(XT_INSN_CALL, curr_eip, 0);
+//                gen_op_XT_mark(XT_INSN_CALL, next_eip, 0);
+//                gen_op_XT_mark(XT_INSN_CALL, cpu_T[1], 0);
+
+                curr_esp = cpu_single_env->regs[R_ESP];
+                gen_op_XT_mark(XT_INSN_CALL, next_eip, curr_esp);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             gen_push_T1(s);
             gen_op_jmp_T0();
             gen_eob(s);
             break;
         case 3: /* lcall Ev */
-#ifdef CONFIG_TCG_XTAINT
-            if(xt_enable_func_call_mark)
-                gen_op_XT_mark(XT_INSN_CALL, 0, 0);
-#endif /* CONFIG_TCG_XTAINT */
             gen_op_ld_T1_A0(ot + s->mem_index);
             gen_add_A0_im(s, 1 << (ot - OT_WORD + 1));
             gen_op_ldu_T0_A0(OT_WORD + s->mem_index);
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark){
+                target_ulong xt_next_eip = s->pc - s->cs_base;
+                curr_esp = cpu_single_env->regs[R_ESP];
+                gen_op_XT_mark(XT_INSN_CALL, xt_next_eip, curr_esp);
+            }
+#endif /* CONFIG_TCG_XTAINT */
 
         do_lcall:
             if (s->pe && !s->vm86) {
@@ -6953,13 +6975,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         /************************/
         /* control */
     case 0xc2: /* ret im */
-#ifdef CONFIG_TCG_XTAINT
-        if(xt_enable_func_call_mark){
-            curr_eip = cpu_single_env->eip;
-            curr_esp = cpu_single_env->regs[R_ESP];
-            gen_op_XT_mark(XT_INSN_RET, curr_eip, curr_esp);
-        }
-#endif /* CONFIG_TCG_XTAINT */
+
         val = ldsw_code(s->pc);
         s->pc += 2;
         gen_pop_T0(s);
@@ -6969,37 +6985,42 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         if (s->dflag == 0)
             gen_op_andl_T0_ffff();
 
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_func_call_mark){
+            curr_esp = cpu_single_env->regs[R_ESP];
+            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
+        }
+#endif /* CONFIG_TCG_XTAINT */
+
         gen_op_jmp_T0();
         gen_eob(s);
         break;
     case 0xc3: /* ret */
-#ifdef CONFIG_TCG_XTAINT
-        if(xt_enable_func_call_mark){
-            curr_eip = cpu_single_env->eip;
-            curr_esp = cpu_single_env->regs[R_ESP];
-            gen_op_XT_mark(XT_INSN_RET, curr_eip, curr_esp);
-        }
-#endif /* CONFIG_TCG_XTAINT */
         gen_pop_T0(s);
         gen_pop_update(s);
         if (s->dflag == 0)
             gen_op_andl_T0_ffff();
 
+#ifdef CONFIG_TCG_XTAINT
+        if(xt_enable_func_call_mark){
+            curr_esp = cpu_single_env->regs[R_ESP];
+            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
+
+//            xt_esp = tcg_temp_new_i32();
+//            tcg_gen_mov_tl(xt_esp, cpu_regs[R_ESP]);
+//            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], xt_esp);
+//            tcg_gen_mov_tl(xt_esp, cpu_regs[R_ESP]);
+        }
+#endif /* CONFIG_TCG_XTAINT */
         gen_op_jmp_T0();
         gen_eob(s);
         break;
     case 0xca: /* lret im */
-#ifdef CONFIG_TCG_XTAINT
-        if(xt_enable_func_call_mark){
-            curr_eip = cpu_single_env->eip;
-            curr_esp = cpu_single_env->regs[R_ESP];
-            gen_op_XT_mark(XT_INSN_RET, curr_eip, curr_esp);
-        }
-#endif /* CONFIG_TCG_XTAINT */
         val = ldsw_code(s->pc);
         s->pc += 2;
     do_lret:
         if (s->pe && !s->vm86) {
+            // How to instrument ret mark in this case
             if (s->cc_op != CC_OP_DYNAMIC)
                 gen_op_set_cc_op(s->cc_op);
             gen_jmp_im(pc_start - s->cs_base);
@@ -7014,6 +7035,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             /* NOTE: keeping EIP updated is not a problem in case of
                exception */
             gen_op_jmp_T0();
+
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark){
+                curr_esp = cpu_single_env->regs[R_ESP];
+                gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
+            }
+#endif /* CONFIG_TCG_XTAINT */
+
             /* pop selector */
             gen_op_addl_A0_im(2 << s->dflag);
             gen_op_ld_T0_A0(1 + s->dflag + s->mem_index);
@@ -7024,13 +7053,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         gen_eob(s);
         break;
     case 0xcb: /* lret */
-#ifdef CONFIG_TCG_XTAINT
-        if(xt_enable_func_call_mark){
-            curr_eip = cpu_single_env->eip;
-            curr_esp = cpu_single_env->regs[R_ESP];
-            gen_op_XT_mark(XT_INSN_RET, curr_eip, curr_esp);
-        }
-#endif /* CONFIG_TCG_XTAINT */
+        // XT: already handle in lret
         val = 0;
         goto do_lret;
     case 0xcf: /* iret */
@@ -7068,11 +7091,18 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 tval &= 0xffff;
             else if(!CODE64(s))
                 tval &= 0xffffffff;
-#ifdef CONFIG_TCG_XTAINT
-            if(xt_enable_func_call_mark)
-                gen_op_XT_mark(XT_INSN_CALL, tval, 0);
-#endif /* CONFIG_TCG_XTAINT */
             gen_movtl_T0_im(next_eip);
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark){
+//                curr_eip = cpu_single_env->eip;
+//                gen_op_XT_mark(XT_INSN_CALL, curr_eip, 0);
+//                gen_op_XT_mark(XT_INSN_CALL, next_eip, 0);
+//                gen_op_XT_mark(XT_INSN_CALL, cpu_T[0], 0);
+
+                curr_esp = cpu_single_env->regs[R_ESP];
+                gen_op_XT_mark(XT_INSN_CALL, next_eip, curr_esp);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             gen_push_T0(s);
             gen_jmp(s, tval);
         }
@@ -7086,12 +7116,15 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             ot = dflag ? OT_LONG : OT_WORD;
             offset = insn_get(s, ot);
             selector = insn_get(s, OT_WORD);
-#ifdef CONFIG_TCG_XTAINT
-            if(xt_enable_func_call_mark)
-                gen_op_XT_mark(XT_INSN_CALL, 0, 0);
-#endif /* CONFIG_TCG_XTAINT */
             gen_op_movl_T0_im(selector);
             gen_op_movl_T1_imu(offset);
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark){
+                target_ulong xt_next_eip = s->pc - s->cs_base;
+                curr_esp = cpu_single_env->regs[R_ESP];
+                gen_op_XT_mark(XT_INSN_CALL, xt_next_eip, curr_esp);
+            }
+#endif /* CONFIG_TCG_XTAINT */
         }
         goto do_lcall;
     case 0xe9: /* jmp im */
