@@ -2533,59 +2533,47 @@ inline void XT_log_tmp_st(TCGContext *s,
 //  - arg1 - eip
 //  - arg2 - esp
 static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
-    TCGTemp *reip;
+    TCGTemp *reip, *r_esp;
     int esp_offset = 0;
 
     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
     esp_offset += 4;
 
-    if(args[0] == XT_INSN_RET){
+//    if(args[0] == XT_INSN_CALL){
+//        reip = &s->temps[args[1]];
+//
+//        tcg_out_pushi(s, args[2]);
+//        esp_offset += 4;
+//
+//        if(args[2]){
+//            tcg_out_pushi(s, args[1]);
+//            esp_offset += 4;
+//        } else{
+//            // push return eip
+//            xt_log_mark(s, reip, &esp_offset);
+//        }
+//
+//        tcg_out_pushi(s, args[0]);  // push flag
+//        esp_offset += 4;
+//    }
+//    else if(args[0] == XT_INSN_RET){
+    if (args[0] == XT_INSN_RET){
         reip = &s->temps[args[1]];
+        r_esp = &s->temps[args[2]];
 
-        tcg_out_pushi(s, args[2]);  // push esp
+        // push esp
+        tcg_out_pushi(s, args[2]);
         esp_offset += 4;
-        // push eip
-        switch(reip->val_type){
-            case TEMP_VAL_DEAD:
-                // fprintf(stderr, "Mark Ret eip: tmp dead\n");
-                // tcg_abort();
-                tcg_out_pushi(s, 0);
-                esp_offset += 4;
-                break;
-            case TEMP_VAL_MEM:
-            {
-                if(reip->mem_reg == 4)
-                    tcg_out_ld(s, reip->type, tcg_target_call_iarg_regs[0],
-                                reip->mem_reg, reip->mem_offset + esp_offset);
-                else
-                    tcg_out_ld(s, reip->type, tcg_target_call_iarg_regs[0],
-                                reip->mem_reg, reip->mem_offset);
+//        xt_log_mark(s, r_esp, &esp_offset);
 
-                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-                esp_offset += 4;
-            }
-            break;
-            case TEMP_VAL_REG:
-            {
-                if(reip->reg == tcg_target_call_iarg_regs[0]){ // eax case
-                    tcg_out_ld(s, reip->type, tcg_target_call_iarg_regs[0],
-                                4, reip->mem_offset + esp_offset);
-                    tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-                } else
-                    tcg_out_push(s, reip->reg);
-                esp_offset += 4;
-            }
-            break;
-            default:
-                fprintf(stderr, "const or unknown ret eip tmp type\n");
-                tcg_abort();
-                break;
-        }
+        // push return eip
+        xt_log_mark(s, reip, &esp_offset);
+
         tcg_out_pushi(s, args[0]);  // push flag
         esp_offset += 4;
     }
-    else if(args[0] == XT_INSN_CALL || \
-            args[0] == XT_SIZE_BEGIN || \
+    else if(args[0] == XT_SIZE_BEGIN || \
+            args[0] == XT_INSN_CALL || \
             args[0] == XT_SIZE_END || \
             args[0] == XT_INSN_ADDR ||\
             args[0] == XT_TCG_DEPOSIT ||\
@@ -2623,6 +2611,49 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
     }
 
     tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
+}
+
+inline void xt_log_mark(TCGContext *s,
+                        TCGTemp *tmp,
+                        int *esp_offset){
+    switch(tmp->val_type){
+        case TEMP_VAL_DEAD:
+            fprintf(stderr, "Mark Ret eip: tmp dead\n");
+            tcg_abort();
+            break;
+        case TEMP_VAL_MEM:
+        {
+            if(tmp->mem_reg == 4)
+                tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+                            tmp->mem_reg, tmp->mem_offset + *esp_offset);
+            else
+                tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+                            tmp->mem_reg, tmp->mem_offset);
+
+            tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+            *esp_offset += 4;
+        }
+        break;
+        case TEMP_VAL_REG:
+        {
+            if(tmp->reg == tcg_target_call_iarg_regs[0]){ // eax case
+                tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+                            4, tmp->mem_offset + *esp_offset);
+                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+            } else
+                tcg_out_push(s, tmp->reg);
+            *esp_offset += 4;
+        }
+        break;
+        case TEMP_VAL_CONST:
+            tcg_out_pushi(s, tmp->val);
+            *esp_offset += 4;
+            break;
+        default:
+            fprintf(stderr, "unknown ret eip tmp type\n");
+            tcg_abort();
+            break;
+    }
 }
 
 inline int get_global_temp_reg_idx(TCGContext *s, TCGTemp *tmp){
