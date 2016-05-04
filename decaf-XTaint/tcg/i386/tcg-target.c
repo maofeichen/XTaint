@@ -2537,34 +2537,17 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
     int esp_offset = 0;
 
     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+//    tcg_out_push(s, tcg_target_call_iarg_regs[1]);
     esp_offset += 4;
 
-//    if(args[0] == XT_INSN_CALL){
-//        reip = &s->temps[args[1]];
-//
-//        tcg_out_pushi(s, args[2]);
-//        esp_offset += 4;
-//
-//        if(args[2]){
-//            tcg_out_pushi(s, args[1]);
-//            esp_offset += 4;
-//        } else{
-//            // push return eip
-//            xt_log_mark(s, reip, &esp_offset);
-//        }
-//
-//        tcg_out_pushi(s, args[0]);  // push flag
-//        esp_offset += 4;
-//    }
-//    else if(args[0] == XT_INSN_RET){
     if (args[0] == XT_INSN_RET){
         reip = &s->temps[args[1]];
         r_esp = &s->temps[args[2]];
 
         // push esp
-        tcg_out_pushi(s, args[2]);
-        esp_offset += 4;
-//        xt_log_mark(s, r_esp, &esp_offset);
+//        tcg_out_pushi(s, args[2]);
+//        esp_offset += 4;
+        xt_log_mark(s, r_esp, &esp_offset);
 
         // push return eip
         xt_log_mark(s, reip, &esp_offset);
@@ -2573,13 +2556,17 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
         esp_offset += 4;
     } else if(args[0] == XT_INSN_CALL){
         resp = &s->temps[args[1]];
+        reip = &s->temps[args[2]];
 
-        tcg_out_pushi(s, args[2]);
-        esp_offset += 4;
+        // xt_save_ret_addr(s, resp, &esp_offset);
+//        tcg_out_pushi(s, args[2]);
+//        esp_offset += 4;
+        xt_log_mark(s, reip, &esp_offset);
 
         // save esp to stack
         xt_log_mark(s, resp, &esp_offset);
 
+        // push flag
         tcg_out_pushi(s, args[0]);
         esp_offset += 4;
     }
@@ -2620,6 +2607,7 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
         tcg_out_addi(s, TCG_REG_ESP, 0xc);
     }
 
+//    tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
     tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
 }
 
@@ -2628,11 +2616,11 @@ inline void xt_log_mark(TCGContext *s,
                         int *esp_offset){
     switch(tmp->val_type){
         case TEMP_VAL_DEAD:
-            // fprintf(stderr, "Mark function call: tmp dead\n");
-            // tcg_abort();
+            fprintf(stderr, "Mark function call: tmp dead\n");
+            tcg_abort();
             // push fake esp
-            tcg_out_push(s, 0);
-            *esp_offset += 4;
+            // tcg_out_push(s, 0);
+            // *esp_offset += 4;
             break;
         case TEMP_VAL_MEM:
         {
@@ -2651,9 +2639,15 @@ inline void xt_log_mark(TCGContext *s,
         {
             if(tmp->reg == tcg_target_call_iarg_regs[0]){ // eax case
                 tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
+                            4, tmp->mem_offset + *esp_offset - 4);
+                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+            }
+            else if(tmp->reg == tcg_target_call_iarg_regs[1]){ // ebx case
+                tcg_out_ld(s, tmp->type, tcg_target_call_iarg_regs[0],
                             4, tmp->mem_offset + *esp_offset);
                 tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-            } else
+            }
+            else
                 tcg_out_push(s, tmp->reg);
             *esp_offset += 4;
         }
@@ -2664,6 +2658,78 @@ inline void xt_log_mark(TCGContext *s,
             break;
         default:
             fprintf(stderr, "unknown ret eip tmp type\n");
+            tcg_abort();
+            break;
+    }
+}
+
+// uses only for call & ret insn. Right after call, the esp value point to the
+// ret addr; right before ret, the esp value point to the ret addr
+inline void xt_save_ret_addr(TCGContext *s,
+                            TCGTemp *resp,
+                            int *esp_offset){
+    switch(resp->val_type){
+        case TEMP_VAL_DEAD:
+            fprintf(stderr, "Mark function call: tmp dead\n");
+            tcg_abort();
+            // push fake esp
+            // tcg_out_push(s, 0);
+            // *esp_offset += 4;
+            break;
+        case TEMP_VAL_MEM:
+        {
+            if(resp->mem_reg == 4)
+                tcg_out_ld(s, resp->type, tcg_target_call_iarg_regs[0],
+                            resp->mem_reg, resp->mem_offset + *esp_offset);
+            else
+                tcg_out_ld(s, resp->type, tcg_target_call_iarg_regs[0],
+                            resp->mem_reg, resp->mem_offset);
+
+            tcg_out_ld(s, resp->type, tcg_target_call_iarg_regs[1],
+                        tcg_target_call_iarg_regs[0], 0);
+            tcg_out_push(s, tcg_target_call_iarg_regs[1]);
+            *esp_offset += 4;
+        }
+        break;
+        case TEMP_VAL_REG:
+        {
+            if(resp->reg == tcg_target_call_iarg_regs[0]){ // eax case
+                tcg_out_ld(s, resp->type, tcg_target_call_iarg_regs[0],
+                            4, resp->mem_offset + *esp_offset -4);
+
+                tcg_out_ld(s, resp->type, tcg_target_call_iarg_regs[1],
+                            tcg_target_call_iarg_regs[0], 0);
+
+                tcg_out_push(s, tcg_target_call_iarg_regs[1]);
+                *esp_offset += 4;
+            }
+            else if(resp->reg == tcg_target_call_iarg_regs[1]){
+                tcg_out_ld(s, resp->type, tcg_target_call_iarg_regs[0],
+                            4, resp->mem_offset + *esp_offset);
+
+                tcg_out_ld(s, resp->type, tcg_target_call_iarg_regs[1],
+                            tcg_target_call_iarg_regs[0], 0);
+
+                tcg_out_push(s, tcg_target_call_iarg_regs[1]);
+                *esp_offset += 4;
+            }
+//            else{
+//                tcg_out_pushi(s, 0);
+//                *esp_offset += 4;
+//            }
+            else{
+                tcg_out_ld(s, resp->type, tcg_target_call_iarg_regs[0],
+                            resp->reg, 0);
+                tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+                *esp_offset += 4;
+            }
+             // push fake for test
+//             tcg_out_pushi(s, 0);
+//             *esp_offset += 4;
+        }
+        break;
+        default:
+            fprintf(stderr, "either const or unknown resp type\n");
             tcg_abort();
             break;
     }

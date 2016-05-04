@@ -4887,6 +4887,8 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 gen_op_andl_T0_ffff();
             next_eip = s->pc - s->cs_base;
             gen_movtl_T1_im(next_eip);
+            gen_push_T1(s);
+            gen_op_jmp_T0();
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
 //                curr_eip = cpu_single_env->eip;
@@ -4895,11 +4897,9 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 //                gen_op_XT_mark(XT_INSN_CALL, cpu_T[1], 0);
 
 //                curr_esp = cpu_single_env->regs[R_ESP];
-//                gen_op_XT_mark(XT_INSN_CALL, next_eip, curr_esp);
+//                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], next_eip);
             }
 #endif /* CONFIG_TCG_XTAINT */
-            gen_push_T1(s);
-            gen_op_jmp_T0();
             gen_eob(s);
             break;
         case 3: /* lcall Ev */
@@ -4908,9 +4908,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_op_ldu_T0_A0(OT_WORD + s->mem_index);
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
+//                curr_eip = s->pc - s->cs_base;
 //                target_ulong xt_next_eip = s->pc - s->cs_base;
 //                curr_esp = cpu_single_env->regs[R_ESP];
 //                gen_op_XT_mark(XT_INSN_CALL, xt_next_eip, curr_esp);
+//                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], curr_eip);
             }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -6975,7 +6977,6 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         /************************/
         /* control */
     case 0xc2: /* ret im */
-
         val = ldsw_code(s->pc);
         s->pc += 2;
         gen_pop_T0(s);
@@ -6989,6 +6990,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         if(xt_enable_func_call_mark){
 //            curr_esp = cpu_single_env->regs[R_ESP];
 //            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
+//            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], cpu_regs[R_ESP]);
         }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -7005,6 +7007,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         if(xt_enable_func_call_mark){
 //            curr_esp = cpu_single_env->regs[R_ESP];
 //            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
+//            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], cpu_regs[R_ESP]);
 
 //            xt_esp = tcg_temp_new_i32();
 //            tcg_gen_mov_tl(xt_esp, cpu_regs[R_ESP]);
@@ -7092,27 +7095,20 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             else if(!CODE64(s))
                 tval &= 0xffffffff;
             gen_movtl_T0_im(next_eip);
-#ifdef CONFIG_TCG_XTAINT
-            if(xt_enable_func_call_mark){
-//                curr_eip = cpu_single_env->eip;
-//                gen_op_XT_mark(XT_INSN_CALL, curr_eip, 0);
-//                gen_op_XT_mark(XT_INSN_CALL, next_eip, 0);
-//                gen_op_XT_mark(XT_INSN_CALL, cpu_T[0], 0);
-
-//                curr_esp = cpu_single_env->regs[R_ESP];
-//                gen_op_XT_mark(XT_INSN_CALL, next_eip, curr_esp);
-            }
-#endif /* CONFIG_TCG_XTAINT */
             gen_push_T0(s);
+            gen_jmp(s, tval);
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
                 // xt_esp = tcg_temp_new_i32();
                 // tcg_gen_mov_tl(xt_esp, cpu_regs[R_ESP]);
                 // gen_op_XT_mark(XT_INSN_CALL, xt_esp, 0);
-                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], 0);
+//                 gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], next_eip);
+                gen_pop_T0(s);
+                gen_pop_update(s);
+                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], cpu_T[0]);
+                gen_push_T0(s);
             }
 #endif /* CONFIG_TCG_XTAINT */
-            gen_jmp(s, tval);
         }
         break;
     case 0x9a: /* lcall im */
@@ -7128,9 +7124,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_op_movl_T1_imu(offset);
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
+//                curr_eip = s->pc - s->cs_base;
 //                target_ulong xt_next_eip = s->pc - s->cs_base;
 //                curr_esp = cpu_single_env->regs[R_ESP];
-//                gen_op_XT_mark(XT_INSN_CALL, xt_next_eip, curr_esp);
+//                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], curr_eip);
             }
 #endif /* CONFIG_TCG_XTAINT */
         }
