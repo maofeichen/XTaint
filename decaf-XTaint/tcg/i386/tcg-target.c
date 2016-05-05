@@ -2558,16 +2558,16 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
 //    }
 //    else if(args[0] == XT_INSN_RET){
     if (args[0] == XT_INSN_RET){
-        reip = &s->temps[args[1]];
-        r_esp = &s->temps[args[2]];
+        r_esp = &s->temps[args[1]];
+        reip = &s->temps[args[2]];
+
+        // push top of stack (return address)
+        // tcg_out_pushi(s, args[2]);
+        // esp_offset += 4;
+        xt_log_mark(s, reip, &esp_offset);
 
         // push esp
-        tcg_out_pushi(s, args[2]);
-        esp_offset += 4;
-//        xt_log_mark(s, r_esp, &esp_offset);
-
-        // push return eip
-        xt_log_mark(s, reip, &esp_offset);
+        xt_log_mark(s, r_esp, &esp_offset);
 
         tcg_out_pushi(s, args[0]);  // push flag
         esp_offset += 4;
@@ -2586,7 +2586,9 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
         tcg_out_pushi(s, args[0]);
         esp_offset += 4;
     }
-    else if(args[0] == XT_SIZE_BEGIN || \
+    else if(args[0] == XT_INSN_CALL_SEC || \
+            args[0] == XT_INSN_RET_SEC || \
+            args[0] == XT_SIZE_BEGIN || \
             args[0] == XT_SIZE_END || \
             args[0] == XT_INSN_ADDR ||\
             args[0] == XT_TCG_DEPOSIT ||\
@@ -2613,7 +2615,9 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
 
     // restore stack
     if(args[0] == XT_INSN_CALL || \
+       args[0] == XT_INSN_CALL_SEC || \
        args[0] == XT_INSN_RET || \
+       args[0] == XT_INSN_RET_SEC || \
        args[0] == XT_SIZE_BEGIN || \
        args[0] == XT_SIZE_END || \
        args[0] == XT_INSN_ADDR || \
