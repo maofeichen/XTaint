@@ -7109,7 +7109,11 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 // xt_esp = tcg_temp_new_i32();
                 // tcg_gen_mov_tl(xt_esp, cpu_regs[R_ESP]);
                 // gen_op_XT_mark(XT_INSN_CALL, xt_esp, 0);
-                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], 0);
+                gen_pop_T0(s);
+                gen_pop_update(s);
+                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], cpu_T[0]);
+                gen_push_T0(s);
+                // gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], 0);
             }
 #endif /* CONFIG_TCG_XTAINT */
             gen_jmp(s, tval);

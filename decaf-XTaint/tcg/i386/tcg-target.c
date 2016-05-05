@@ -2573,9 +2573,12 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
         esp_offset += 4;
     } else if(args[0] == XT_INSN_CALL){
         resp = &s->temps[args[1]];
+        reip = &s->temps[args[2]];
 
-        tcg_out_pushi(s, args[2]);
-        esp_offset += 4;
+        // log return address
+        // tcg_out_pushi(s, args[2]);
+        //  esp_offset += 4;
+        xt_log_mark(s, reip, &esp_offset);
 
         // save esp to stack
         xt_log_mark(s, resp, &esp_offset);
