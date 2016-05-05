@@ -455,17 +455,6 @@ static inline void gen_op_jmp_T0(void)
 
     tcg_gen_st_tl(cpu_T[0], cpu_env, offsetof(CPUState, eip));
 
-#ifdef CONFIG_TCG_XTAINT
-//        if(xt_enable_func_call_mark){
-            // curr_eip = cpu_single_env->eip;
-            // curr_eip = cpu_T[0];
-            // tcg_gen_st_tl(cpu_T[0], curr_eip, 0);
-//            TCGv curr_esp;
-//            curr_esp = cpu_single_env->regs[R_ESP];
-//            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
-//        }
-#endif /* CONFIG_TCG_XTAINT */
-
     //For DECAF_EIP_CHECK_CB -by Hu
 #ifdef CONFIG_TCG_TAINT
 	TCGv t1 = tcg_const_ptr(cur_pc);
@@ -4887,19 +4876,14 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 gen_op_andl_T0_ffff();
             next_eip = s->pc - s->cs_base;
             gen_movtl_T1_im(next_eip);
-#ifdef CONFIG_TCG_XTAINT
-            if(xt_enable_func_call_mark){
-//                curr_eip = cpu_single_env->eip;
-//                gen_op_XT_mark(XT_INSN_CALL, curr_eip, 0);
-//                gen_op_XT_mark(XT_INSN_CALL, next_eip, 0);
-//                gen_op_XT_mark(XT_INSN_CALL, cpu_T[1], 0);
-
-//                curr_esp = cpu_single_env->regs[R_ESP];
-//                gen_op_XT_mark(XT_INSN_CALL, next_eip, curr_esp);
-            }
-#endif /* CONFIG_TCG_XTAINT */
             gen_push_T1(s);
             gen_op_jmp_T0();
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark){
+                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], cpu_T[1]);
+                gen_op_XT_mark(XT_INSN_CALL_FF2, cpu_T[0], 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             gen_eob(s);
             break;
         case 3: /* lcall Ev */
@@ -7009,9 +6993,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 //            tcg_gen_mov_tl(xt_esp, cpu_regs[R_ESP]);
 
 //            curr_esp = cpu_single_env->regs[R_ESP];
-            curr_eip = cpu_single_env->eip;
-            gen_op_XT_mark(XT_INSN_RET, cpu_regs[R_ESP], cpu_T[0]);
-            gen_op_XT_mark(XT_INSN_RET_SEC, curr_eip, 0);
+
+//            curr_eip = cpu_single_env->eip;
+//            gen_op_XT_mark(XT_INSN_RET, cpu_regs[R_ESP], cpu_T[0]);
+//            gen_op_XT_mark(XT_INSN_RET_SEC, curr_eip, 0);
         }
 #endif /* CONFIG_TCG_XTAINT */
         gen_op_jmp_T0();

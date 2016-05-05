@@ -2571,7 +2571,22 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
 
         tcg_out_pushi(s, args[0]);  // push flag
         esp_offset += 4;
-    } else if(args[0] == XT_INSN_CALL){
+    }
+    else if(args[0] == XT_INSN_CALL_FF2){
+        reip = &s->temps[args[1]];
+
+        // 3rd args is not used
+        tcg_out_pushi(s, 0);
+        esp_offset += 4;
+
+        // 2rd args is the eip of CALL(0xff/2)
+        xt_log_mark(s, reip, &esp_offset);
+
+        // 1rd arg is the mark of call ff/2
+        tcg_out_pushi(s, args[0]);
+        esp_offset += 4;
+    }
+    else if(args[0] == XT_INSN_CALL){
         resp = &s->temps[args[1]];
         reip = &s->temps[args[2]];
 
@@ -2618,6 +2633,7 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
        args[0] == XT_INSN_CALL_SEC || \
        args[0] == XT_INSN_RET || \
        args[0] == XT_INSN_RET_SEC || \
+       args[0] == XT_INSN_CALL_FF2 || \
        args[0] == XT_SIZE_BEGIN || \
        args[0] == XT_SIZE_END || \
        args[0] == XT_INSN_ADDR || \
