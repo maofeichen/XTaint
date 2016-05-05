@@ -6971,8 +6971,9 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
 #ifdef CONFIG_TCG_XTAINT
         if(xt_enable_func_call_mark){
-//            curr_esp = cpu_single_env->regs[R_ESP];
-//            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
+            curr_eip = cpu_single_env->eip;
+            gen_op_XT_mark(XT_INSN_RET, cpu_regs[R_ESP], cpu_T[0]);
+            gen_op_XT_mark(XT_INSN_RET_SEC, curr_eip, 0);
         }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -6994,9 +6995,9 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
 //            curr_esp = cpu_single_env->regs[R_ESP];
 
-//            curr_eip = cpu_single_env->eip;
-//            gen_op_XT_mark(XT_INSN_RET, cpu_regs[R_ESP], cpu_T[0]);
-//            gen_op_XT_mark(XT_INSN_RET_SEC, curr_eip, 0);
+            curr_eip = cpu_single_env->eip;
+            gen_op_XT_mark(XT_INSN_RET, cpu_regs[R_ESP], cpu_T[0]);
+            gen_op_XT_mark(XT_INSN_RET_SEC, curr_eip, 0);
         }
 #endif /* CONFIG_TCG_XTAINT */
         gen_op_jmp_T0();
