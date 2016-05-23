@@ -4880,7 +4880,9 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_op_jmp_T0();
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
+                // record esp, return addr after ret
                 gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], cpu_T[1]);
+                // record callee addr as well
                 gen_op_XT_mark(XT_INSN_CALL_FF2, cpu_T[0], 0);
             }
 #endif /* CONFIG_TCG_XTAINT */
@@ -6972,7 +6974,10 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 #ifdef CONFIG_TCG_XTAINT
         if(xt_enable_func_call_mark){
             curr_eip = cpu_single_env->eip;
+            // record esp, top of stack (ret addr) before ret
             gen_op_XT_mark(XT_INSN_RET, cpu_regs[R_ESP], cpu_T[0]);
+            // record current eip as well (log addr of leave instead of ret,
+            // should plus 1 byte to get ret addr)
             gen_op_XT_mark(XT_INSN_RET_SEC, curr_eip, 0);
         }
 #endif /* CONFIG_TCG_XTAINT */
@@ -7090,7 +7095,9 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 //                curr_eip = cpu_single_env->eip;
                 gen_pop_T0(s);
                 gen_pop_update(s);
+                // record esp, top of stack (ret addr) after ret
                 gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], cpu_T[0]);
+                // record callee addr as well
                 gen_op_XT_mark(XT_INSN_CALL_SEC, tval, 0);
                 gen_push_T0(s);
             }
