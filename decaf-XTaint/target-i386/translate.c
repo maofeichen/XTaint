@@ -4881,7 +4881,8 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
                 // record esp, return addr after ret
-                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], cpu_T[1]);
+                // gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], cpu_T[1]);
+                gen_op_XT_mark(XT_INSN_CALL_FF2_01, cpu_regs[R_ESP], next_eip);
                 // record callee addr as well
                 gen_op_XT_mark(XT_INSN_CALL_FF2, cpu_T[0], 0);
             }

@@ -2572,6 +2572,17 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
         tcg_out_pushi(s, args[0]);  // push flag
         esp_offset += 4;
     }
+    else if(args[0] == XT_INSN_CALL_FF2_01){
+        resp = &s->temps[args[1]];
+
+        // log top of stack
+        tcg_out_pushi(s, args[2]);
+        // log esp
+        xt_log_mark(s, resp, &esp_offset);
+        // log call flag
+        tcg_out_pushi(s, args[0]);
+        esp_offset += 4;
+    }
     else if(args[0] == XT_INSN_CALL_FF2){
         reip = &s->temps[args[1]];
 
@@ -2633,6 +2644,7 @@ static inline void tcg_out_XT_mark(TCGContext *s, const TCGArg *args){
        args[0] == XT_INSN_CALL_SEC || \
        args[0] == XT_INSN_RET || \
        args[0] == XT_INSN_RET_SEC || \
+       args[0] == XT_INSN_CALL_FF2_01 || \
        args[0] == XT_INSN_CALL_FF2 || \
        args[0] == XT_SIZE_BEGIN || \
        args[0] == XT_SIZE_END || \

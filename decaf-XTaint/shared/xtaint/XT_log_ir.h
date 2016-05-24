@@ -25,6 +25,7 @@
 #define XT_INSN_CALL_SEC 0x4b
 #define XT_INSN_RET 0x18
 #define XT_INSN_RET_SEC 0x4c
+#define XT_INSN_CALL_FF2_01 0x4e // call insn ff/2 encode first instrument
 #define XT_INSN_CALL_FF2 0x4d
 #define XT_SIZE_BEGIN 0x20
 #define XT_SIZE_END 0x24

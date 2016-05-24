@@ -58,6 +58,7 @@ void xt_flush_file(FILE *xt_log) {
            *i_ptr == XT_INSN_RET || \
            *i_ptr == XT_INSN_CALL_SEC || \
            *i_ptr == XT_INSN_RET_SEC || \
+           *i_ptr == XT_INSN_CALL_FF2_01 || \
            *i_ptr == XT_INSN_CALL_FF2){
             fprintf(xt_log, "%x\t", *i_ptr++);              // flag
             fprintf(xt_log, "%x\t", *(uint32_t *) i_ptr);   // 1st arg
