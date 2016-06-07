@@ -4,7 +4,6 @@
  */
 
 #include <iostream>
-#include <fstream>
 #include <stack>
 #include <string>
 #include <vector>
@@ -14,37 +13,49 @@
 
 using namespace std;
 
+// char* XTLOG_PATH = \
+//     "./Test-File/test-aes-128-oneblock-sizemark-funcmark.txt";
 char* XTLOG_PATH = \
-    "./Test-File/test-aes-128-oneblock-sizemark-funcmark.txt";
+    "./Test-File/test-aes-128-oneblock.txt";
 
-vector<string> preprocess(vector<string> &);
-vector<string> clean_size_mark(vector<string> &);
+vector<string> preprocess(vector<string> &);                // pre-process xtaint log
+vector<string> clean_size_mark(vector<string> &);      // clean empty size mark
 vector<string> analyze_func_mark(vector<string> &);
 vector<string> clean_func_mark(vector<string> &);
 
 int main(void)
 {
-    // vector<string> xt_log_str;
+    vector<string> xt_log;
 
-    // xt_log_str = read_file(XTLOG_PATH);
-    // xt_log_str = preprocess(xt_log_str);
+    // xt_log = read_file(XTLOG_PATH);
+    // xt_log = preprocess(xt_log);
 
     XTFile xt_file(XTLOG_PATH);
-    xt_file.Read();
+    xt_log = xt_file.Read();
+
+    // pre-process
+    xt_log = preprocess(xt_log);
 }
 
-
+// pre-process xtaint log:
+// clean empty size mark
+// clean empty function call mark
 vector<string> preprocess(vector<string> &v)
 {
     vector<string> v_new;
     v_new = clean_size_mark(v);
-    v_new = analyze_func_mark(v_new);
-    v_new = clean_func_mark(v_new);
+    // v_new = analyze_func_mark(v_new);
+    // v_new = clean_func_mark(v_new);
     return v_new;
 }
 
 // v - contain xtaint record line by line
-// if a pair of size mark, there is no records between, delete it
+// if a pair of size mark, there is no records between, delete it. For example,
+//      20  8   0   
+//      24  8   0   
+//      20  10  0   
+//      24  10  0
+// deletes all above
 // return - new vector
 vector<string> clean_size_mark(vector<string> &v)
 {
@@ -56,8 +67,9 @@ vector<string> clean_size_mark(vector<string> &v)
         if( (*i).substr(0,2).compare(XT_SIZE_END) == 0){
             e = *i;
             b = v_new.back();
-            // if a match size begin mark
+            // if a begin mark
             if(b.substr(0,2).compare(XT_SIZE_BEGIN) == 0)
+                // if match size
                 if(b.substr(3, string::npos).compare(e.substr(3,string::npos) ) == 0 ){
                     v_new.pop_back();
                     continue;
@@ -65,9 +77,9 @@ vector<string> clean_size_mark(vector<string> &v)
         }
         v_new.push_back(*i);
     }
-    // cout << "after clean size mark: " << endl;
-    // for(vector<string>::iterator i = v_new.begin(); i != v_new.end(); ++i)
-    //     cout << *i << endl; 
+    std::cout << "after clean size mark: " << std::endl;
+    for(vector<string>::iterator i = v_new.begin(); i != v_new.end(); ++i)
+        std::cout << *i << std::endl; 
     return v_new;
 }
 
@@ -218,8 +230,8 @@ vector<string> clean_func_mark(vector<string> &v)
     //     v_new.insert(v_new.begin(), top);
     // }
         
-    cout << "after clean function call mark: " << endl;
-    for(vector<string>::iterator i = v_new.begin(); i != v_new.end(); ++i)
-        cout << *i << endl; 
+    // cout << "after clean function call mark: " << endl;
+    // for(vector<string>::iterator i = v_new.begin(); i != v_new.end(); ++i)
+    //     cout << *i << endl; 
     return v_new;   
 }

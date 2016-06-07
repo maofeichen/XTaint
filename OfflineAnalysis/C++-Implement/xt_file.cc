@@ -19,9 +19,9 @@ std::vector<std::string> XTFile::Read()
         std::cout << "error open file" << std::endl;
     xt_log.close();
 
-    std::cout << "xtant log: " << std::endl;
-    for(std::vector<std::string>::iterator it = v.begin(); it != v.end(); ++it)
-        std::cout << *it << std::endl; 
+    // std::cout << "xtant log: " << std::endl;
+    // for(std::vector<std::string>::iterator it = v.begin(); it != v.end(); ++it)
+    //     std::cout << *it << std::endl; 
 
     return v;   
 }
