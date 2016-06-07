@@ -455,17 +455,6 @@ static inline void gen_op_jmp_T0(void)
 
     tcg_gen_st_tl(cpu_T[0], cpu_env, offsetof(CPUState, eip));
 
-#ifdef CONFIG_TCG_XTAINT
-//        if(xt_enable_func_call_mark){
-            // curr_eip = cpu_single_env->eip;
-            // curr_eip = cpu_T[0];
-            // tcg_gen_st_tl(cpu_T[0], curr_eip, 0);
-//            TCGv curr_esp;
-//            curr_esp = cpu_single_env->regs[R_ESP];
-//            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
-//        }
-#endif /* CONFIG_TCG_XTAINT */
-
     //For DECAF_EIP_CHECK_CB -by Hu
 #ifdef CONFIG_TCG_TAINT
 	TCGv t1 = tcg_const_ptr(cur_pc);
@@ -4267,12 +4256,12 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     // tcg_gen_debug_insn_start(pc_start);
 
     // debug how qemu translates
-//    if(pc_start == 0x80497ef){
-//        printf("pc at 0x80497ef\n");
-//    }
+    if(pc_start == 0x804841b){
+        printf("pc at 0x804841b\n");
+    }
 
     tcg_target_long curr_eip, curr_esp;
-    static TCGv xt_esp;
+    TCGv xt_esp;
 #endif /* CONFIG_TCG_XTAINT */
     s->pc = pc_start;
     prefixes = 0;
@@ -4887,19 +4876,17 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
                 gen_op_andl_T0_ffff();
             next_eip = s->pc - s->cs_base;
             gen_movtl_T1_im(next_eip);
-#ifdef CONFIG_TCG_XTAINT
-            if(xt_enable_func_call_mark){
-//                curr_eip = cpu_single_env->eip;
-//                gen_op_XT_mark(XT_INSN_CALL, curr_eip, 0);
-//                gen_op_XT_mark(XT_INSN_CALL, next_eip, 0);
-//                gen_op_XT_mark(XT_INSN_CALL, cpu_T[1], 0);
-
-                curr_esp = cpu_single_env->regs[R_ESP];
-                gen_op_XT_mark(XT_INSN_CALL, next_eip, curr_esp);
-            }
-#endif /* CONFIG_TCG_XTAINT */
             gen_push_T1(s);
             gen_op_jmp_T0();
+#ifdef CONFIG_TCG_XTAINT
+            if(xt_enable_func_call_mark){
+                // record esp, return addr after ret
+                // gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], cpu_T[1]);
+                gen_op_XT_mark(XT_INSN_CALL_FF2_01, cpu_regs[R_ESP], next_eip);
+                // record callee addr as well
+                gen_op_XT_mark(XT_INSN_CALL_FF2, cpu_T[0], 0);
+            }
+#endif /* CONFIG_TCG_XTAINT */
             gen_eob(s);
             break;
         case 3: /* lcall Ev */
@@ -4908,9 +4895,9 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_op_ldu_T0_A0(OT_WORD + s->mem_index);
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
-                target_ulong xt_next_eip = s->pc - s->cs_base;
-                curr_esp = cpu_single_env->regs[R_ESP];
-                gen_op_XT_mark(XT_INSN_CALL, xt_next_eip, curr_esp);
+//                target_ulong xt_next_eip = s->pc - s->cs_base;
+//                curr_esp = cpu_single_env->regs[R_ESP];
+//                gen_op_XT_mark(XT_INSN_CALL, xt_next_eip, curr_esp);
             }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -6987,8 +6974,12 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
 #ifdef CONFIG_TCG_XTAINT
         if(xt_enable_func_call_mark){
-            curr_esp = cpu_single_env->regs[R_ESP];
-            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
+            curr_eip = cpu_single_env->eip;
+            // record esp, top of stack (ret addr) before ret
+            gen_op_XT_mark(XT_INSN_RET, cpu_regs[R_ESP], cpu_T[0]);
+            // record current eip as well (log addr of leave instead of ret,
+            // should plus 1 byte to get ret addr)
+            gen_op_XT_mark(XT_INSN_RET_SEC, curr_eip, 0);
         }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -7003,13 +6994,16 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
 #ifdef CONFIG_TCG_XTAINT
         if(xt_enable_func_call_mark){
-            curr_esp = cpu_single_env->regs[R_ESP];
-            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
-
 //            xt_esp = tcg_temp_new_i32();
 //            tcg_gen_mov_tl(xt_esp, cpu_regs[R_ESP]);
 //            gen_op_XT_mark(XT_INSN_RET, cpu_T[0], xt_esp);
 //            tcg_gen_mov_tl(xt_esp, cpu_regs[R_ESP]);
+
+//            curr_esp = cpu_single_env->regs[R_ESP];
+
+            curr_eip = cpu_single_env->eip;
+            gen_op_XT_mark(XT_INSN_RET, cpu_regs[R_ESP], cpu_T[0]);
+            gen_op_XT_mark(XT_INSN_RET_SEC, curr_eip, 0);
         }
 #endif /* CONFIG_TCG_XTAINT */
         gen_op_jmp_T0();
@@ -7038,8 +7032,8 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
-                curr_esp = cpu_single_env->regs[R_ESP];
-                gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
+//                curr_esp = cpu_single_env->regs[R_ESP];
+//                gen_op_XT_mark(XT_INSN_RET, cpu_T[0], curr_esp);
             }
 #endif /* CONFIG_TCG_XTAINT */
 
@@ -7092,18 +7086,23 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             else if(!CODE64(s))
                 tval &= 0xffffffff;
             gen_movtl_T0_im(next_eip);
+            gen_push_T0(s);
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
-//                curr_eip = cpu_single_env->eip;
-//                gen_op_XT_mark(XT_INSN_CALL, curr_eip, 0);
-//                gen_op_XT_mark(XT_INSN_CALL, next_eip, 0);
-//                gen_op_XT_mark(XT_INSN_CALL, cpu_T[0], 0);
+                // xt_esp = tcg_temp_new_i32();
+                // tcg_gen_mov_tl(xt_esp, cpu_regs[R_ESP]);
+                // gen_op_XT_mark(XT_INSN_CALL, xt_esp, 0);
 
-                curr_esp = cpu_single_env->regs[R_ESP];
-                gen_op_XT_mark(XT_INSN_CALL, next_eip, curr_esp);
+//                curr_eip = cpu_single_env->eip;
+                gen_pop_T0(s);
+                gen_pop_update(s);
+                // record esp, top of stack (ret addr) after ret
+                gen_op_XT_mark(XT_INSN_CALL, cpu_regs[R_ESP], cpu_T[0]);
+                // record callee addr as well
+                gen_op_XT_mark(XT_INSN_CALL_SEC, tval, 0);
+                gen_push_T0(s);
             }
 #endif /* CONFIG_TCG_XTAINT */
-            gen_push_T0(s);
             gen_jmp(s, tval);
         }
         break;
@@ -7120,9 +7119,9 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             gen_op_movl_T1_imu(offset);
 #ifdef CONFIG_TCG_XTAINT
             if(xt_enable_func_call_mark){
-                target_ulong xt_next_eip = s->pc - s->cs_base;
-                curr_esp = cpu_single_env->regs[R_ESP];
-                gen_op_XT_mark(XT_INSN_CALL, xt_next_eip, curr_esp);
+//                target_ulong xt_next_eip = s->pc - s->cs_base;
+//                curr_esp = cpu_single_env->regs[R_ESP];
+//                gen_op_XT_mark(XT_INSN_CALL, xt_next_eip, curr_esp);
             }
 #endif /* CONFIG_TCG_XTAINT */
         }
