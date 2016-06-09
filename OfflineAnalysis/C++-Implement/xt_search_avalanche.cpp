@@ -25,10 +25,11 @@ vector<string> analyze_func_mark(vector<string> &); //  DEPRECATED!
 vector<string> clean_empty_func_mark(vector<string> &);
 vector<string> clean_func_mark(vector<string> &);
 inline bool is_invalid_record(string &);
+vector<string> get_alive_buffers(vector<string> &);
 
 int main(void)
 {
-    vector<string> xt_log;
+    vector<string> xt_log, alive_buffer;
 
     // xt_log = read_file(XTLOG_PATH);
     // xt_log = preprocess(xt_log);
@@ -38,6 +39,9 @@ int main(void)
 
     // pre-process
     xt_log = preprocess(xt_log);
+    alive_buffer = get_alive_buffers(xt_log);
+
+    return 0;
 }
 
 // pre-process xtaint log:
@@ -275,19 +279,14 @@ vector<string> clean_func_mark(vector<string> &v)
     v_new.clear();
     for(vector<string>::iterator it = tmp.begin(); it != tmp.end(); ++it)
         v_new.push_back(*it);
-    
-    // while(!tmp.empty()){
-    //     top = func_mark.top();
-    //     func_mark.pop();
-    //     v_new.insert(v_new.begin(), top);
-    // }
 
     // clean empty again
-    v_new = clean_empty_func_mark(v_new);
+    // v_new = clean_empty_func_mark(v_new);
  
-    cout << "after clean function call mark: " << endl;
-    for(vector<string>::iterator i = v_new.begin(); i != v_new.end(); ++i)
-        cout << *i << endl; 
+    // cout << "after clean function call mark: " << endl;
+    // for(vector<string>::iterator i = v_new.begin(); i != v_new.end(); ++i)
+    //     cout << *i << endl; 
+
     return v_new;   
 }
 
@@ -302,4 +301,66 @@ inline bool is_invalid_record(string &rec)
         return true;
     else
         return false;
+}
+
+//  For whole xtaint log:
+//  1. begins with 1st function call END mark, find if it has matched
+//     function call START mark. 
+//  2. If it has, find if there is any valid alive buffers. 
+//  3. If it has, store them in order
+// Parameters:
+//      - v:    xtaint log
+// Return
+//      the alive buffers in order
+vector<string> get_alive_buffers(vector<string> &v)
+{
+    vector<string> alive_buffer, tmp, vc, vr;
+    string c, r;
+    int i, j, k, sz;
+    bool is_mark_pair;
+
+    for(i = 0; i < v.size(); i++){
+        // if a 2nd RET mark
+        if(v[i].substr(0,2).compare(XT_RET_INSN_2nd) == 0){
+            tmp.clear(); 
+            tmp.push_back(v[i]); // sotre the 2nd RET mark
+            r = v[i - 1]; // 1st RET mark
+
+            // scan backwards find its matched CALL mark
+            for(j = i - 1; j >= 0; j--){
+                is_mark_pair = false;
+                tmp.push_back(v[j]);
+
+                if(v[j].substr(0,2).compare(XT_CALL_INSN) == 0 || \
+                    v[j].substr(0,2).compare(XT_CALL_INSN_FF2) == 0){
+                    c = v[j];
+                    vc = split(v[j].c_str(), '\t');
+                    vr = split(r.c_str(), '\t');
+                    assert(vc.size() == vr.size());
+                    sz = vc.size();
+                    // if CALL & RET mark match
+                    if(vc.at(sz - 2).compare(vr.at(sz - 2) ) == 0){
+                        alive_buffer.push_back(c);
+                        // scan all records between the pairred marks
+                        for(vector<string>::reverse_iterator rit = tmp.rbegin(); \
+                              rit != tmp.rend(); ++rit){
+                            // cout << *rit << endl;
+                            if((*rit).substr(0,2).compare(TCG_QEMU_LD) == 0 || \
+                                (*rit).substr(0,2).compare(TCG_QEMU_ST) == 0)
+                                alive_buffer.push_back(*rit);
+                        }
+                        alive_buffer.push_back(r);
+                        is_mark_pair = true;
+                    }
+                }
+                if(is_mark_pair)
+                    break;
+            }
+        }
+    }
+
+    for(vector<string>::iterator it = alive_buffer.begin(); it != alive_buffer.end(); ++it)
+        cout << *it << endl;
+
+    return alive_buffer;
 }

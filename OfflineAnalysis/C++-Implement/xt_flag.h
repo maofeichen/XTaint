@@ -16,6 +16,8 @@
 #define XT_RET_INSN "18"
 #define XT_RET_INSN_2nd "4c"
 
+#define TCG_QEMU_LD "34"
+#define TCG_QEMU_ST "35"
 #define TCG_ADD "3b"
 #define TCG_XOR "40"
 #endif
