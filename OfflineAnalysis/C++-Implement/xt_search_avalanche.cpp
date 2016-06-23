@@ -16,8 +16,10 @@ using namespace std;
 
 // char* XTLOG_PATH = \
 //     "./Test-File/test-aes-128-oneblock-sizemark-funcmark.txt";
+// char* XTLOG_PATH = \
+//     "./Test-File/test-aes-128-oneblock.txt";
 char* XTLOG_PATH = \
-    "./Test-File/test-aes-128-oneblock.txt";
+    "./Test-File/test-aes-128-1B-all-marks.txt";
 
 vector<string> preprocess(vector<string> &);                // pre-process xtaint log
 vector<string> clean_size_mark(vector<string> &);      // clean empty size mark
