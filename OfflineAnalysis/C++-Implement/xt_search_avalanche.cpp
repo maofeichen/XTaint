@@ -20,14 +20,18 @@ using namespace std;
 //     "./Test-File/test-aes-128-oneblock.txt";
 char* XTLOG_PATH = \
     "./Test-File/test-aes-128-1B-all-marks.txt";
+// char* XTLOG_PATH = \
+//     "./Test-File/test-aes-128-1B-all-identify-in-out-buffer-fake-data.txt";
 
-vector<string> preprocess(vector<string> &);                // pre-process xtaint log
-vector<string> clean_size_mark(vector<string> &);      // clean empty size mark
-vector<string> analyze_func_mark(vector<string> &); //  DEPRECATED!
+vector<string> preprocess(vector<string> &);                    // pre-process xtaint log
+vector<string> clean_size_mark(vector<string> &);           // clean empty size mark
+vector<string> analyze_func_mark(vector<string> &);       //  DEPRECATED!
 vector<string> clean_empty_func_mark(vector<string> &);
 vector<string> clean_func_mark(vector<string> &);
 inline bool is_invalid_record(string &);
-vector<string> get_alive_buffers(vector<string> &);
+vector<string> get_alive_buffers(vector<string> &);           
+inline vector<string> filter_alive_buffers(vector<string> &);   // Temp DEPRECATED!
+vector<string> filter_nested_buffer(vector<string> &);
 
 int main(void)
 {
@@ -42,6 +46,7 @@ int main(void)
     // pre-process
     xt_log = preprocess(xt_log);
     alive_buffer = get_alive_buffers(xt_log);
+    alive_buffer = filter_nested_buffer(alive_buffer);
 
     return 0;
 }
@@ -306,8 +311,8 @@ inline bool is_invalid_record(string &rec)
 }
 
 //  For whole xtaint log:
-//  1. begins with 1st function call END mark, find if it has matched
-//     function call START mark. 
+//  1. begins with 1st function call END mark, search backward to find if it
+//     has matched function call START mark. 
 //  2. If it has, find if there is any valid alive buffers. 
 //  3. If it has, store them in order
 // Parameters:
@@ -319,7 +324,7 @@ vector<string> get_alive_buffers(vector<string> &v)
     vector<string> alive_buffer, tmp, vc, vr;
     string c, r;
     int i, j, k, sz;
-    bool is_mark_pair;
+    bool is_mark_pair, is_empty_func_call;
 
     for(i = 0; i < v.size(); i++){
         // if a 2nd RET mark
@@ -340,18 +345,67 @@ vector<string> get_alive_buffers(vector<string> &v)
                     vr = split(r.c_str(), '\t');
                     assert(vc.size() == vr.size());
                     sz = vc.size();
+
                     // if CALL & RET mark match
                     if(vc.at(sz - 2).compare(vr.at(sz - 2) ) == 0){
                         alive_buffer.push_back(c);
+
+                        // DEBUG
+                        // if(vc.at(sz - 2).compare("804a0cd") == 0)
+                        //     cout << "function call: AES_encrypt(...); top of stack: 804a0cd" << endl;
+
+                        is_empty_func_call = true;
                         // scan all records between the pairred marks
+                        // 1st scan, to determine if it is empty
                         for(vector<string>::reverse_iterator rit = tmp.rbegin(); \
                               rit != tmp.rend(); ++rit){
-                            // cout << *rit << endl;
                             if((*rit).substr(0,2).compare(TCG_QEMU_LD) == 0 || \
-                                (*rit).substr(0,2).compare(TCG_QEMU_ST) == 0)
-                                alive_buffer.push_back(*rit);
+                                (*rit).substr(0,2).compare(TCG_QEMU_ST) == 0){
+                                if(is_empty_func_call)
+                                    is_empty_func_call = false;
+                            }
                         }
-                        alive_buffer.push_back(r);
+
+                        if(!is_empty_func_call){
+                            for(vector<string>::reverse_iterator rit = tmp.rbegin(); \
+                                  rit != tmp.rend(); ++rit){
+                                // save memory buffers and call or ret marks as well
+                                if((*rit).substr(0,2).compare(TCG_QEMU_LD) == 0 || \
+                                    (*rit).substr(0,2).compare(TCG_QEMU_ST) == 0 || \
+                                    (*rit).substr(0,2).compare(XT_CALL_INSN) == 0 || \
+                                    (*rit).substr(0,2).compare(XT_CALL_INSN_FF2) == 0 || \
+                                    (*rit).substr(0,2).compare(XT_RET_INSN) == 0){
+
+                                    alive_buffer.push_back(*rit);
+
+                                    // if not the outmost  call & ret mark
+                                    // if((*rit).compare(c) != 0 && (*rit).compare(r) != 0)
+                                    //     alive_buffer.push_back(*rit);
+                                }
+                            }
+                        }
+
+                        // // test if there is memory buffer
+                        // is_empty_func_call = true;
+                        // for(vector<string>::iterator it = tmp.begin(); \
+                        //         it != tmp.end(); ++it)
+                        //     if((*it).substr(0,2).compare(TCG_QEMU_LD)  == 0|| \
+                        //         (*it).substr(0,2).compare(TCG_QEMU_ST) == 0)
+                        //         is_empty_func_call = false;
+
+                        // if(!is_empty_func_call)
+                        //     tmp = filter_alive_buffers(tmp);
+
+                        // for(vector<string>::iterator it = tmp.begin(); \
+                        //         it != tmp.end(); ++it)
+                        //     alive_buffer.push_back(*it);
+
+                        // if empty pair function call, no need to record
+                        if(is_empty_func_call)
+                            alive_buffer.pop_back();
+                        else
+                            alive_buffer.push_back(r);
+
                         is_mark_pair = true;
                     }
                 }
@@ -365,4 +419,143 @@ vector<string> get_alive_buffers(vector<string> &v)
         cout << *it << endl;
 
     return alive_buffer;
+}
+
+// Even fetches all alive buffers of a fucntion call, they might not be valid
+// of all, such as
+//      f1 begin
+//          mem1
+//          f2 begin
+//              mem2
+//          f2 end
+//      f1 end
+// mem1 and mem2 are alive in f1, however, we only consider mem1
+// is valid, since mem2 belongs a nested function call f2. 
+// Thus, need to filter valid alive buffers
+// args:
+//      - alive_buffer
+//          contains all alive buffer for a particular function call, but not
+//          all are valid. In reverse order, i.e., from functin end to start
+// return:
+//      - alive_buffer after fltering, in order
+inline vector<string> filter_alive_buffers(vector<string> &alive_buffer)
+{
+    vector<string> alive_buffer_filter, vc, vr;
+    stack<string> nested_func_call;
+    string ret, call;
+    int sz;
+
+    // push the outmost function call BEGIN marks
+    // alive_buffer_filter.push_back(alive_buffer.end()[-1]);
+    // alive_buffer_filter.push_back(alive_buffer.end()[-2]);
+
+    for (vector<string>::reverse_iterator rit = alive_buffer.rbegin();
+            rit != alive_buffer.rend(); ++rit) {
+        // if a CALL mark, push to stack
+        if((*rit).substr(0,2).compare(XT_CALL_INSN) == 0 || \
+            (*rit).substr(0,2).compare(XT_CALL_INSN_FF2) == 0)
+            nested_func_call.push(*rit);
+        // if a RET mark, compare to the CALL mark to see if match
+        // (which should). If matches, pop the stack
+        else if((*rit).substr(0,2).compare(XT_RET_INSN) == 0){
+            ret = *rit;
+            call = nested_func_call.top();
+            vc = split(call.c_str(), '\t');
+            vr = split(ret.c_str(), '\t');
+            assert(vc.size() == vr.size());
+            sz = vc.size();
+            // if CALL & RET mark top of stack values are same (match)
+            if(vc.at(sz - 2).compare(vr.at(sz - 2) ) == 0)
+                nested_func_call.pop();
+        }
+        // if a memory buffer
+        else if((*rit).substr(0,2).compare(TCG_QEMU_LD) == 0 || \
+                    (*rit).substr(0,2).compare(TCG_QEMU_ST) == 0)
+            // if not in nested function (1 indicates outmost function call)
+            if(nested_func_call.size() <= 1)
+                alive_buffer_filter.push_back(*rit);
+    }
+
+    // push the outmost function call END marks
+    // alive_buffer_filter.push_back(alive_buffer.begin()[1]);
+    // alive_buffer_filter.push_back(alive_buffer.begin()[0]);
+
+    return alive_buffer_filter;
+}
+
+// Even fetches all alive buffers of a fucntion call, they might not be valid
+// of all, such as
+//      f1 begin
+//          mem1
+//          f2 begin
+//              mem2
+//          f2 end
+//      f1 end
+// mem1 and mem2 are alive in f1, however, we only consider mem1
+// is valid, since mem2 belongs a nested function call f2. 
+// Thus, need to filter valid alive buffers
+// args:
+//      - alive_buffer
+//          contains all alive buffer for a particular function call, but not
+//          all are valid. 
+// return:
+//      - alive_buffer after fltering 
+vector<string> filter_nested_buffer(vector<string> &alive_buffer)
+{
+    string call, ret, ret_matched;
+    vector<string> alive_buffer_filtered, vc, vr;
+    int nested_func_layer = 0, idx = 0, j, sz;
+    bool is_pair_nested_func;
+
+    for(vector<string>::iterator it = alive_buffer.begin(); \
+            it != alive_buffer.end(); ++it){
+        if((*it).substr(0,2).compare(XT_CALL_INSN) == 0 || \
+            (*it).substr(0,2).compare(XT_CALL_INSN_FF2) == 0){
+            if(nested_func_layer > 0){
+                // a nested function call
+                // begin from this elem, search forward to found its matched 
+                // function end mark
+                is_pair_nested_func = false;
+                for(j = idx; j < alive_buffer.size(); j++){
+                    // if a closest RET is found
+                    if(alive_buffer[j].substr(0,2).compare(XT_RET_INSN) == 0){
+                        call = alive_buffer[idx];
+                        ret = alive_buffer[j];
+
+                        vc = split(call.c_str(), '\t');
+                        vr = split(ret.c_str(), '\t');
+                        assert(vc.size() == vr.size());
+                        sz = vc.size();
+
+                        // if CALL & RET mark top of stack values are same (match)
+                        if(vc.at(sz - 2).compare(vr.at(sz - 2) ) == 0){
+                            is_pair_nested_func = true;
+                            ret_matched = ret;
+                            // advance the iterator
+                            advance(it, j - idx);
+                        }
+                    }
+                }
+
+            }
+            nested_func_layer++;
+        }
+        else if((*it).substr(0,2).compare(XT_RET_INSN) == 0){
+            if(nested_func_layer > 0)   // currently in nested call
+                nested_func_layer--;
+
+            // iterate to the end of the paired nested call
+            // reset the flag
+            if((*it).compare(ret_matched) == 0)
+                is_pair_nested_func = false;
+        }
+        alive_buffer_filtered.push_back(*it);
+        idx++;
+    }
+
+    // for(vector<string>::iterator it = alive_buffer_filtered.begin(); \
+    //         it != alive_buffer_filtered.end(); ++it)
+    //     cout << *it << endl;
+
+    return alive_buffer_filtered;
 }
