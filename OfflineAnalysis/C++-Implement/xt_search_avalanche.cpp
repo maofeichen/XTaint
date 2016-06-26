@@ -18,10 +18,10 @@ using namespace std;
 //     "./Test-File/test-aes-128-oneblock-sizemark-funcmark.txt";
 // char* XTLOG_PATH = \
 //     "./Test-File/test-aes-128-oneblock.txt";
-char* XTLOG_PATH = \
-    "./Test-File/test-aes-128-1B-all-marks.txt";
 // char* XTLOG_PATH = \
-//     "./Test-File/test-aes-128-1B-all-identify-in-out-buffer-fake-data.txt";
+//     "./Test-File/test-aes-128-1B-all-marks.txt";
+char* XTLOG_PATH = \
+    "./Test-File/test-aes-128-1B-all-identify-in-out-buffer-fake-data.txt";
 
 vector<string> preprocess(vector<string> &);                    // pre-process xtaint log
 vector<string> clean_size_mark(vector<string> &);           // clean empty size mark
@@ -29,9 +29,11 @@ vector<string> analyze_func_mark(vector<string> &);       //  DEPRECATED!
 vector<string> clean_empty_func_mark(vector<string> &);
 vector<string> clean_func_mark(vector<string> &);
 inline bool is_invalid_record(string &);
-vector<string> get_alive_buffers(vector<string> &);           
+
+vector<string> get_alive_buffers(vector<string> &);               // Temp DEPRECATED!
 inline vector<string> filter_alive_buffers(vector<string> &);   // Temp DEPRECATED!
-vector<string> filter_nested_buffer(vector<string> &);
+vector<string> filter_nested_buffer(vector<string> &);           // Temp DEPRECATED!
+vector<string> analyze_alive_buffer(vector<string> &);
 
 int main(void)
 {
@@ -45,8 +47,11 @@ int main(void)
 
     // pre-process
     xt_log = preprocess(xt_log);
-    alive_buffer = get_alive_buffers(xt_log);
-    alive_buffer = filter_nested_buffer(alive_buffer);
+
+    // buffer liveness analysis
+    // alive_buffer = get_alive_buffers(xt_log);
+    // alive_buffer = filter_nested_buffer(alive_buffer);
+    alive_buffer = analyze_alive_buffer(xt_log);
 
     return 0;
 }
@@ -558,4 +563,87 @@ vector<string> filter_nested_buffer(vector<string> &alive_buffer)
     //     cout << *it << endl;
 
     return alive_buffer_filtered;
+}
+
+// analyzes alive buffers for each function call given a xtlog.
+// For those buffers are alive for multiple nested function call,
+// they are ONLY considerred alive in the innermost function call.
+// args:
+//      - xtlog: a vector of strings that contains all xtaint records
+// return:
+//      - alive_buffer: a vector contaiins all alive buffers of each function
+//          call. And function calls are sorted with ended first order.
+vector<string> analyze_alive_buffer(vector<string> &xt_log)
+{
+    int idx, sz_mark;
+    bool is_invalid_buf;
+    string mark_call_2nd, mark_ret;
+    stack<string> calls;
+    vectro<string> alive_buffer, vec_mark_call, vec_mark_ret;
+
+    for(vector<string>::iterator it = xt_log.begin(); \
+            it != xt_log.end(); ++it){
+        // If a function call END mark hit
+        if((*it).substr(0,2).compare(XT_RET_INSN_2nd) == 0){
+            idx = xt_log.end() - it;
+            cout << "Index of ret mark to end is: " << idx << endl;
+
+            // scan backward to the begin
+            for(vector<string>::reverse_iterator rit = xt_log.rend() - idx; \
+                    rit != xt_log.rbegin(); ++rit){
+                cout << "scan backward to the bgin:" << endl;
+                // cout << "current record: " << *rit << endl;
+                is_invalid_buf = true;
+
+                // 2nd funcation call END mark
+                if((*rit).substr(0,2).compare(XT_RET_INSN_2nd) == 0){
+                    if(calls.empty())
+                        calls.push(*rit);
+                    else if(calls.size() == 2){  // indicates outermost call are pushed
+                        calls.push(*rit);
+                        // A nested call hit, set flag to flase
+                        is_invalid_buf = false;
+                    }
+                }
+                // function call END mark
+                else if((*rit).substr(0,2).compare(XT_RET_INSN) == 0){
+                    // ONLY stores outermost and sec outermost calls
+                    if(calls.size() == 1 || calls.size() == 3)
+                        calls.push(*rit);
+                }
+                // 2nd function call START mark
+                else if((*rit).substr(0,2).compare(XT_CALL_INSN_2nd) == 0){
+                    // If outermost call or and with sec outermost call
+                    if(calls.size() == 2 || calls.size() == 4)
+                        calls.push(*rit);
+                }
+                // function call START mark
+                else if((*rit).substr(0,2).compare(XT_CALL_INSN) == 0 || \
+                            (*rit).substr(0,2).compare(XT_CALL_INSN_FF2) == 0){
+                    // outermost call END marks and outermost call 2nd START mark ONLY
+                    if(calls.size() == 3){ 
+                        mark_call_2nd = calls.pop();
+                        mark_ret = calls.pop();
+                        // Check if call & ret marks are pair (their top of stack value are same)
+                        vec_mark_call = split(*rit.c_str(), '\t');
+                        vec_mark_ret = split(mark_ret.c_str(), '\t');
+                        assert(vec_mark_call.size() == vec_mark_ret.size());
+                        sz_mark = vec_mark_call.size();
+                        if(vec_mark_call.at(sz_mark -2).compare(vec_mark_ret.at(sz_mark - 2)) != 0)
+                            cout << "outermost call START mark is NOT matched with END mark" << endl;
+
+                        // break the loop any way
+                        break;
+                    }
+                    // outermost and sec outermost call END marks with 
+                    // sec outermost 2nd START mark
+                    else if(calls.size() == 5){
+                        mark_call_2nd = calls.pop();
+                        
+                    }
+                }
+            }
+        }
+    }
+    return alive_buffer;
 }
