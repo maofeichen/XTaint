@@ -4,13 +4,16 @@
 #include <string>
 #include <vector>
 
+using namespace std;
+
 class XT_File
 {
 private:
-    std::string m_path;
+    std::string path_r;
 public:
-    XT_File(std::string path);
+    XT_File(std::string);
 
     std::vector<std::string> read();
+    void write(std::string, std::vector<std::string> &);
 }; 
 #endif

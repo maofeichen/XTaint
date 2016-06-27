@@ -3,6 +3,7 @@
 #include <vector>
 #include "xt_flag.h"
 #include "xt_preprocess.h"
+#include "xt_util.h"
 
 using namespace std;
 
@@ -72,8 +73,8 @@ vector<string> XT_PreProcess::clean_empty_function_mark(vector<string> &v)
             if(call.substr(0,2).compare(flag::XT_CALL_INSN) == 0 || \
                 call.substr(0,2).compare(flag::XT_CALL_INSN_FF2) == 0 ){
                 // if matches
-                v_call = split(call.c_str(), '\t');
-                v_ret = split(ret.c_str(), '\t');
+                v_call = XT_Util::split(call.c_str(), '\t');
+                v_ret = XT_Util::split(ret.c_str(), '\t');
                 assert(v_call.size() == v_ret.size() );
                 sz = v_call.size();
                 if(v_call.at(sz - 2).compare(v_ret.at(sz - 2) ) == 0){
@@ -125,8 +126,8 @@ vector<string> XT_PreProcess::clean_nonempty_function_mark(vector<string> &v)
                 // found a CALL mark
                 if(call.substr(0,2).compare(flag::XT_CALL_INSN) == 0 || \
                     call.substr(0,2).compare(flag::XT_CALL_INSN_FF2) == 0){
-                    v_call = split(call.c_str(), '\t');
-                    v_ret = split(ret.c_str(), '\t');
+                    v_call = XT_Util::split(call.c_str(), '\t');
+                    v_ret = XT_Util::split(ret.c_str(), '\t');
                     assert(v_call.size() == v_ret.size() );
                     sz = v_call.size();
 
