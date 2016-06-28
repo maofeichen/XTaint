@@ -16,7 +16,7 @@ vector<string> XT_Liveness::analyze_alive_buffer(vector<string> &v)
 {
     int idx, idx_call, idx_ret;
     string ret, call;
-    vector<string> alive_buffer;
+    vector<string> alive_buffer, tmp;
     vector<string>::iterator it_call, it_ret;
 
     for(vector<string>::iterator it = v.begin(); it != v.end(); ++it){
@@ -43,7 +43,7 @@ vector<string> XT_Liveness::analyze_alive_buffer(vector<string> &v)
                         it_call = v.begin() + idx_call - 1;
                         it_ret = v.begin() + idx_ret + 1;
                         vector<string> v_function_call(it_call, it_ret);
-                        XT_Liveness::analyze_function_alive_buffer(v_function_call);
+                        tmp = XT_Liveness::analyze_function_alive_buffer(v_function_call);
 
                         break;  // break search backward
                     }
@@ -58,6 +58,52 @@ vector<string> XT_Liveness::analyze_alive_buffer(vector<string> &v)
 vector<string> XT_Liveness::analyze_function_alive_buffer(vector<string> &v)
 {
     vector<string> v_new;
+    stack<string> nest_function;
+    bool is_in_nest_function = false;
+    int idx;
+    vector<string>::iterator it_call, it_ret;
+
+    // push outermost CALL marks
+    v_new.push_back(v[0]);
+    v_new.push_back(v[1]);
+
+    for(vector<string>::iterator it = v.begin() + 2; it != v.end() - 2; ++it){
+        // If a nested CALL mark hits
+        if(XT_Util::equal_mark(*it, flag::XT_CALL_INSN) || 
+            XT_Util::equal_mark(*it, flag::XT_CALL_INSN_FF2) ){
+            // if already in nested function, no need to check
+            if(!is_in_nest_function){
+                idx = it - v.begin();
+                it_call = it;
+                // finds its matched RET mark
+                for(it_ret = v.begin() + idx; it_ret != v.end() - 2; ++it_ret){
+                    // if a RET mark hits
+                    if(XT_Util::equal_mark(*it_ret, flag::XT_RET_INSN))
+                        if(XT_Util::is_pair_function_mark(*it_call, *it_ret) ){
+                            is_in_nest_function = true;
+                            nest_function.push(*it_call);
+                            break;
+                        }
+                }
+            }
+        }
+        // if a nested RET mark hit
+        else if(XT_Util::equal_mark(*it, flag::XT_RET_INSN)){
+            if(XT_Util::is_pair_function_mark(nest_function.top(), *it) ){
+                nest_function.pop();
+                is_in_nest_function = false;
+            }
+        }
+        // if a mem buffer mark hits
+        else if(XT_Util::equal_mark(*it, flag::TCG_QEMU_LD) || 
+            XT_Util::equal_mark(*it, flag::TCG_QEMU_ST))
+            if(!is_in_nest_function)
+                v_new.push_back(*it);
+    }
+
+    // push outer most RET marks
+    v_new.push_back(v[v.size() - 2]);
+    v_new.push_back(v[v.size() - 1]);
 
     return v_new;
 }
