@@ -4,7 +4,7 @@
 TARGET = xt_main
 
 CC := g++
-CFLAGS := -g 
+CFLAGS := -g -std=c++11
 INC = -I include
 
 LINKER = g++ -o

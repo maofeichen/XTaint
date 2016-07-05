@@ -1,5 +1,7 @@
 #include <cassert>
+#include <iostream>
 #include <stack>
+#include <string>
 #include "xt_flag.h"
 #include "xt_liveness.h"
 #include "xt_util.h"
@@ -43,7 +45,8 @@ vector<string> XT_Liveness::analyze_alive_buffer(vector<string> &v)
                         it_call = v.begin() + idx_call - 1;
                         it_ret = v.begin() + idx_ret + 1;
                         vector<string> v_function_call(it_call, it_ret);
-                        tmp = XT_Liveness::analyze_function_alive_buffer(v_function_call);
+                        // tmp = XT_Liveness::analyze_function_alive_buffer(v_function_call);
+                        tmp = XT_Liveness::analyze_alive_buffer_per_function(v_function_call);
 
                         if(tmp.size() > 4){
                             for(vector<string>::iterator tmp_it = tmp.begin(); tmp_it != tmp.end(); ++tmp_it)
@@ -58,6 +61,7 @@ vector<string> XT_Liveness::analyze_alive_buffer(vector<string> &v)
     return alive_buffer;
 }
 
+// !!! IGNORE
 // analyzes alive buffers for a particular function call.
 vector<string> XT_Liveness::analyze_function_alive_buffer(vector<string> &v)
 {
@@ -110,4 +114,68 @@ vector<string> XT_Liveness::analyze_function_alive_buffer(vector<string> &v)
     v_new.push_back(v[v.size() - 1]);
 
     return v_new;
+}
+
+// analyzes alive buffers for a particular function call
+vector<string> XT_Liveness::analyze_alive_buffer_per_function(vector<string> &v)
+{
+    vector<string> v_new, v_call_mark, v_ld, v_st;
+    string call_mark, s_func_esp, s_mem_addr;
+    unsigned long i_func_esp, i_mem_addr;
+
+    call_mark = v[0];
+    v_call_mark = XT_Util::split(call_mark.c_str(), '\t');
+    s_func_esp = v_call_mark[1];
+    // std::cout << "size of esp string: " << s_func_esp.size() << std::endl;
+    i_func_esp = std::stoul(s_func_esp, nullptr, 16);
+
+    // push outermost CALL marks
+    v_new.push_back(v[0]);
+    v_new.push_back(v[1]);
+
+    for(vector<string>::iterator it = v.begin() + 2; it != v.end() - 2; ++it){
+        if(XT_Util::equal_mark(*it, flag::TCG_QEMU_LD)){
+            v_ld = XT_Util::split((*it).c_str(), '\t');
+            s_mem_addr = v_ld[1];
+            i_mem_addr = std::stoul(s_mem_addr, nullptr, 16);
+
+            if(is_mem_alive(i_func_esp, i_mem_addr))
+                v_new.push_back(*it);
+        }
+        else if(XT_Util::equal_mark(*it, flag::TCG_QEMU_ST)){
+            v_st = XT_Util::split((*it).c_str(), '\t');
+            s_mem_addr = v_st[4];
+            i_mem_addr = std::stoul(s_mem_addr, nullptr, 16);
+            if(is_mem_alive(i_func_esp, i_mem_addr))
+                v_new.push_back(*it);
+        }
+    }
+
+    // push outer most RET marks
+    v_new.push_back(v[v.size() - 2]);
+    v_new.push_back(v[v.size() - 1]);
+
+    return v_new;
+}
+
+inline bool XT_Liveness::is_mem_alive(unsigned long &func_esp, unsigned long &mem_addr)
+{
+    if(mem_addr > STACK_BEGIN_ADDR)
+        is_stack_mem_alive(func_esp, mem_addr);
+    else
+        is_heap_mem_alive();
+}
+
+inline bool XT_Liveness::is_stack_mem_alive(unsigned long &func_esp, unsigned long &stack_addr)
+{
+    if(stack_addr > func_esp)
+        return true;
+    else
+        return false;
+}
+
+// heap addr always consider alive
+inline bool XT_Liveness::is_heap_mem_alive()
+{
+    return true;
 }

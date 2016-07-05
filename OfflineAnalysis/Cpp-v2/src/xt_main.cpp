@@ -30,12 +30,14 @@ int main(int argc, char const *argv[])
     XT_File xt_file_aes(XT_FILE_PATH + XT_FILE_AES + XT_FILE_EXT);
     xt_log_aes = xt_file_aes.read();
 
+    // preprocess xtaint log
     XT_PreProcess xt_preprocess;
     xt_log_aes = xt_preprocess.clean_size_mark(xt_log_aes);
     xt_log_aes = xt_preprocess.clean_empty_function_mark(xt_log_aes);
     xt_log_aes = xt_preprocess.clean_nonempty_function_mark(xt_log_aes);
     xt_file_aes.write(XT_RESULT_PATH + XT_FILE_AES + XT_PREPROCESS + XT_FILE_EXT, xt_log_aes); 
 
+    // buffer liveness analysis
     aes_alive_buf = XT_Liveness::analyze_alive_buffer(xt_log_aes);
     xt_file_aes.write(XT_RESULT_PATH + XT_FILE_AES + XT_ALIVE_BUF + XT_FILE_EXT, aes_alive_buf); 
 
@@ -43,10 +45,6 @@ int main(int argc, char const *argv[])
     // XT_File xt_file_fake(XT_FILE_PATH + XT_FILE_FAKE_DATA + XT_FILE_EXT);
     // xt_log_fake = xt_file_fake.read();
     // XT_Liveness::analyze_alive_buffer(xt_log_fake);
-    
-
-
-    
 
     return 0;
 }
