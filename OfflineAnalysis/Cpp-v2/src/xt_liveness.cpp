@@ -45,6 +45,10 @@ vector<string> XT_Liveness::analyze_alive_buffer(vector<string> &v)
                         vector<string> v_function_call(it_call, it_ret);
                         tmp = XT_Liveness::analyze_function_alive_buffer(v_function_call);
 
+                        if(tmp.size() > 4){
+                            for(vector<string>::iterator tmp_it = tmp.begin(); tmp_it != tmp.end(); ++tmp_it)
+                                alive_buffer.push_back(*tmp_it);
+                        }
                         break;  // break search backward
                     }
                 }
@@ -89,7 +93,7 @@ vector<string> XT_Liveness::analyze_function_alive_buffer(vector<string> &v)
         }
         // if a nested RET mark hit
         else if(XT_Util::equal_mark(*it, flag::XT_RET_INSN)){
-            if(XT_Util::is_pair_function_mark(nest_function.top(), *it) ){
+            if(!nest_function.empty() && XT_Util::is_pair_function_mark(nest_function.top(), *it) ){
                 nest_function.pop();
                 is_in_nest_function = false;
             }
