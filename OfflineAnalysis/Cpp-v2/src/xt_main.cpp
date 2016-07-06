@@ -18,6 +18,8 @@ const string XT_FILE_AES = \
 
 const string XT_PREPROCESS = \
     "-preprocess";
+const string XT_ADD_SIZE_INFO = 
+    "-add-size-info";
 const string XT_ALIVE_BUF = 
     "-alive-buf";
 
@@ -36,6 +38,9 @@ int main(int argc, char const *argv[])
     xt_log_aes = xt_preprocess.clean_empty_function_mark(xt_log_aes);
     xt_log_aes = xt_preprocess.clean_nonempty_function_mark(xt_log_aes);
     xt_file_aes.write(XT_RESULT_PATH + XT_FILE_AES + XT_PREPROCESS + XT_FILE_EXT, xt_log_aes); 
+
+    xt_log_aes = XT_PreProcess::add_mem_size_info(xt_log_aes);
+    xt_file_aes.write(XT_RESULT_PATH + XT_FILE_AES + XT_ADD_SIZE_INFO + XT_FILE_EXT, xt_log_aes);
 
     // buffer liveness analysis
     aes_alive_buf = XT_Liveness::analyze_alive_buffer(xt_log_aes);

@@ -155,3 +155,29 @@ vector<string> XT_PreProcess::clean_nonempty_function_mark(vector<string> &v)
 
     return v_new;
 }
+
+// for each qemu ld/st record, add size infor to the end of each
+vector<string> XT_PreProcess::add_mem_size_info(vector<string> &v)
+{
+    int idx;
+    string size_mark;
+    vector<string> v_new, v_size_mark;
+
+    for(vector<string>::iterator it = v.begin(); it != v.end(); ++it){
+        if(XT_Util::equal_mark(*it, flag::TCG_QEMU_LD) ||
+            XT_Util::equal_mark(*it, flag::TCG_QEMU_ST)){
+            idx = v.end() - it;
+
+            vector<string>::reverse_iterator rit = v.rbegin() + idx -1;
+            for(; rit != v.rend(); ++rit){
+                if(XT_Util::equal_mark(*rit, flag::XT_SIZE_BEGIN)){
+                    v_size_mark = XT_Util::split((*rit).c_str(), '\t');
+                    *it = *it + v_size_mark[1];
+                    break;
+                }
+            }
+        }
+        v_new.push_back(*it);
+    }
+    return v_new;
+}
