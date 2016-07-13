@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include "xt_data.h"
 
 using namespace std;
 
@@ -15,5 +16,6 @@ public:
 
     std::vector<std::string> read();
     void write(std::string, std::vector<std::string> &);
+    void write_continue_buffer(string, vector<Func_Call_Cont_Buf_t> &);
 }; 
 #endif

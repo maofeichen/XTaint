@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <stack>
@@ -34,8 +35,6 @@ vector<string> XT_Liveness::analyze_alive_buffer(vector<string> &v)
                 // if a CALL mark hits
                 if(XT_Util::equal_mark(*rit, flag::XT_CALL_INSN) || 
                     XT_Util::equal_mark(*rit, flag::XT_CALL_INSN_FF2) ){
-                // if((*rit).substr(0,2).compare(flag::XT_CALL_INSN) == 0 || 
-                //     (*rit).substr(0,2).compare(flag::XT_CALL_INSN_FF2) == 0){
                     call = *rit;
                     // if a matched CALL & RET marks
                     if(XT_Util::is_pair_function_mark(call, ret) ){
@@ -178,4 +177,138 @@ inline bool XT_Liveness::is_stack_mem_alive(unsigned long &func_esp, unsigned lo
 inline bool XT_Liveness::is_heap_mem_alive()
 {
     return true;
+}
+
+// merge continue buffers for all function calls in xtaint log
+vector<Func_Call_Cont_Buf_t> XT_Liveness::merge_continue_buffer(vector<string> &v)
+{
+    vector<string>::iterator it_call, it_ret;
+    Func_Call_Cont_Buf_t func_call_cont_buf;
+    vector<Func_Call_Cont_Buf_t> v_func_call_cont_buf;
+
+    for(vector<string>::iterator it = v.begin(); it != v.end(); ++it){
+        if(XT_Util::equal_mark(*it, flag::XT_CALL_INSN) ||
+            XT_Util::equal_mark(*it, flag::XT_CALL_INSN_FF2) ){
+            it_call = it;
+            for(it_ret = it_call + 1; it_ret != v.end(); ++it_ret){
+                // find call mark coresponding ret mark
+                if(XT_Util::equal_mark(*it_ret, flag::XT_RET_INSN_2nd)){
+                    vector<string> v_function_call(it_call, it_ret + 1);
+                    func_call_cont_buf = XT_Liveness::analyze_continue_buffer_per_function(v_function_call);
+                    v_func_call_cont_buf.push_back(func_call_cont_buf);
+                    break;
+                }
+            }
+        }
+
+    }
+
+    return v_func_call_cont_buf;
+}
+
+// merge continues buffer if any for a particular function call
+Func_Call_Cont_Buf_t XT_Liveness::analyze_continue_buffer_per_function(vector<string> &v)
+{
+    Func_Call_Cont_Buf_t func_call_cont_buf;
+    vector<Cont_Buf_t> v_cont_buf;
+    Buf_Rec_t buf_rec;
+    vector<Buf_Rec_t> v_buf_rec;
+
+    func_call_cont_buf.call_mark = v[0];
+    func_call_cont_buf.sec_call_mark = v[1];
+
+    for(vector<string>::iterator it = v.begin() + 2; it != v.end() - 2; ++it){
+        if(XT_Util::equal_mark(*it, flag::TCG_QEMU_LD) ){
+            buf_rec = XT_Liveness::analyze_load_buf(*it);
+            v_buf_rec.push_back(buf_rec);
+        }
+        else if(XT_Util::equal_mark(*it, flag::TCG_QEMU_ST) ){
+            buf_rec = XT_Liveness::analyze_store_buf(*it);
+            v_buf_rec.push_back(buf_rec);
+        }
+    }
+    std::sort(v_buf_rec.begin(), v_buf_rec.end(), XT_Liveness::compare_buf_rec);
+    v_cont_buf = XT_Liveness::create_continue_buffer(v_buf_rec);
+    func_call_cont_buf.cont_buf = v_cont_buf;
+
+    func_call_cont_buf.ret_mark = v[v.size() - 2];
+    func_call_cont_buf.sec_ret_mark = v[v.size() - 1];
+
+    return func_call_cont_buf;
+}
+
+inline Buf_Rec_t XT_Liveness::analyze_load_buf(string &s)
+{
+    Buf_Rec_t buf_rec;
+    vector<string> v_ld_rec;
+
+    v_ld_rec = XT_Util::split(s.c_str(), '\t');
+    buf_rec.src_flag = v_ld_rec[0];
+    buf_rec.src_addr = v_ld_rec[1];
+    buf_rec.src_val = v_ld_rec[2];
+
+    buf_rec.dst_flag = v_ld_rec[3];
+    buf_rec.dst_addr = v_ld_rec[4];
+    buf_rec.dst_val = v_ld_rec[5];
+
+    buf_rec.s_size = v_ld_rec[6];
+    buf_rec.this_rec = s;
+
+    buf_rec.addr = std::stoul(buf_rec.src_addr, nullptr, 16);
+    buf_rec.size = std::stoul(buf_rec.s_size, nullptr, 10);
+
+    return buf_rec;
+}
+
+inline Buf_Rec_t XT_Liveness::analyze_store_buf(string &s)
+{
+    Buf_Rec_t buf_rec;
+    vector<string> v_st_rec;
+
+    v_st_rec = XT_Util::split(s.c_str(), '\t');
+    buf_rec.src_flag = v_st_rec[0];
+    buf_rec.src_addr = v_st_rec[1];
+    buf_rec.src_val = v_st_rec[2];
+
+    buf_rec.dst_flag = v_st_rec[3];
+    buf_rec.dst_addr = v_st_rec[4];
+    buf_rec.dst_val = v_st_rec[5];
+
+    buf_rec.s_size = v_st_rec[6];
+    buf_rec.this_rec = s;
+
+    buf_rec.addr = std::stoul(buf_rec.dst_addr, nullptr, 16);
+    buf_rec.size = std::stoul(buf_rec.s_size, nullptr, 10);
+
+    return buf_rec;
+}
+
+bool XT_Liveness::compare_buf_rec(Buf_Rec_t &b1, Buf_Rec_t &b2)
+{
+    return b1.addr < b2.addr;
+}
+
+vector<Cont_Buf_t> XT_Liveness::create_continue_buffer(vector<Buf_Rec_t> &v_buf_rec)
+{
+    vector<Cont_Buf_t> v_cont_buf;
+    Cont_Buf_t cont_buf;
+
+    cont_buf.begin_addr = v_buf_rec[0].addr;
+    cont_buf.size = v_buf_rec[0].size;
+    for(vector<Buf_Rec_t>::iterator it = v_buf_rec.begin() + 1; it != v_buf_rec.end(); ++it){
+        // if addr already contain
+        if((cont_buf.begin_addr + cont_buf.size / 8) > (*it).addr)
+            continue;
+        // if continue
+        else if((cont_buf.begin_addr + cont_buf.size / 8) == (*it).addr )
+            cont_buf.size += (*it).size;
+        // if discontinue
+        else if((cont_buf.begin_addr + cont_buf.size / 8) < (*it).addr){
+            v_cont_buf.push_back(cont_buf);
+            cont_buf.begin_addr = (*it).addr;
+            cont_buf.size = (*it).size;
+        }
+    }
+
+    return v_cont_buf;
 }

@@ -168,11 +168,19 @@ vector<string> XT_PreProcess::add_mem_size_info(vector<string> &v)
             XT_Util::equal_mark(*it, flag::TCG_QEMU_ST)){
             idx = v.end() - it;
 
-            vector<string>::reverse_iterator rit = v.rbegin() + idx -1;
+            vector<string>::reverse_iterator rit = v.rbegin() + idx;
             for(; rit != v.rend(); ++rit){
+                // if most recent size mark is BEGIN, indicating it is 
+                // enclosed by a pair of size marks
                 if(XT_Util::equal_mark(*rit, flag::XT_SIZE_BEGIN)){
                     v_size_mark = XT_Util::split((*rit).c_str(), '\t');
                     *it = *it + v_size_mark[1];
+                    break;
+                }
+                // if most recent size mark is an END, indicating there is NO
+                // size mark of this record, 32 bit default
+                else if(XT_Util::equal_mark(*rit, flag::XT_SIZE_END)){
+                    *it = *it + "32";
                     break;
                 }
             }

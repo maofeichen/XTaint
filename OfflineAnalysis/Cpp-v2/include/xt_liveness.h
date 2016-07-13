@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include "xt_data.h"
 
 using namespace std;
 
@@ -17,10 +18,18 @@ class XT_Liveness
 
     static vector<string> analyze_function_alive_buffer(vector<string> &); // IGNORE
     static vector<string> analyze_alive_buffer_per_function(vector<string> &);
+
+    static inline Buf_Rec_t analyze_load_buf(string &);
+    static inline Buf_Rec_t analyze_store_buf(string &);
+    static bool compare_buf_rec(Buf_Rec_t &, Buf_Rec_t &);
+
+    static vector<Cont_Buf_t> create_continue_buffer(vector<Buf_Rec_t> &);
+    static Func_Call_Cont_Buf_t analyze_continue_buffer_per_function(vector<string> &);
  public:
      XT_Liveness();
 
      static std::vector<std::string> analyze_alive_buffer(std::vector<std::string> &);
+     static std::vector<Func_Call_Cont_Buf_t> merge_continue_buffer(std::vector<std::string> &);
      
  }; 
 #endif

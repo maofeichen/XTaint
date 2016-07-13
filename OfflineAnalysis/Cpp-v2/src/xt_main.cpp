@@ -22,11 +22,13 @@ const string XT_ADD_SIZE_INFO =
     "-add-size-info";
 const string XT_ALIVE_BUF = 
     "-alive-buf";
+const string CONT_BUF = "-cont-buf";
 
 int main(int argc, char const *argv[])
 {
     vector<string> xt_log_aes, xt_log_fake;
     vector<string> aes_alive_buf;
+    vector<Func_Call_Cont_Buf_t> v_func_call_cont_buf;
 
     // aes xtaint log  
     XT_File xt_file_aes(XT_FILE_PATH + XT_FILE_AES + XT_FILE_EXT);
@@ -45,6 +47,10 @@ int main(int argc, char const *argv[])
     // buffer liveness analysis
     aes_alive_buf = XT_Liveness::analyze_alive_buffer(xt_log_aes);
     xt_file_aes.write(XT_RESULT_PATH + XT_FILE_AES + XT_ALIVE_BUF + XT_FILE_EXT, aes_alive_buf); 
+
+    // merge continues buffers
+    v_func_call_cont_buf = XT_Liveness::merge_continue_buffer(aes_alive_buf);
+    xt_file_aes.write_continue_buffer(XT_RESULT_PATH + XT_FILE_AES + CONT_BUF + XT_FILE_EXT, v_func_call_cont_buf);
 
     // fake data xtaint log
     // XT_File xt_file_fake(XT_FILE_PATH + XT_FILE_FAKE_DATA + XT_FILE_EXT);
