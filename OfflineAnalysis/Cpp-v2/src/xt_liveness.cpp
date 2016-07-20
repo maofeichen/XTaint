@@ -312,3 +312,27 @@ vector<Cont_Buf_t> XT_Liveness::create_continue_buffer(vector<Buf_Rec_t> &v_buf_
 
     return v_cont_buf;
 }
+
+// fliter continue buffers that size larger than 4 bytes
+vector<Func_Call_Cont_Buf_t> XT_Liveness::filter_continue_buffer(vector<Func_Call_Cont_Buf_t> &v)
+{
+    Func_Call_Cont_Buf_t func_call_cont_buf;
+    vector<Func_Call_Cont_Buf_t> v_new;
+
+    for(vector<Func_Call_Cont_Buf_t>::iterator it_func = v.begin(); it_func != v.end(); ++it_func){
+        func_call_cont_buf.call_mark = (*it_func).call_mark;
+        func_call_cont_buf.sec_call_mark = (*it_func).sec_call_mark;
+        func_call_cont_buf.ret_mark = (*it_func).ret_mark;
+        func_call_cont_buf.sec_ret_mark = (*it_func).sec_ret_mark;
+
+        for(vector<Cont_Buf_t>::iterator it_cont_buf = (*it_func).cont_buf.begin();
+            it_cont_buf != (*it_func).cont_buf.end(); ++it_cont_buf){
+            if((*it_cont_buf).size > 32)
+                func_call_cont_buf.cont_buf.push_back(*it_cont_buf);
+        }
+        v_new.push_back(func_call_cont_buf);
+        func_call_cont_buf.cont_buf.clear();
+    }
+
+    return v_new;
+}

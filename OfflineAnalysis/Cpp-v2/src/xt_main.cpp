@@ -50,6 +50,7 @@ int main(int argc, char const *argv[])
 
     // merge continues buffers
     v_func_call_cont_buf = XT_Liveness::merge_continue_buffer(aes_alive_buf);
+    v_func_call_cont_buf = XT_Liveness::filter_continue_buffer(v_func_call_cont_buf);
     xt_file_aes.write_continue_buffer(XT_RESULT_PATH + XT_FILE_AES + CONT_BUF + XT_FILE_EXT, v_func_call_cont_buf);
 
     // fake data xtaint log

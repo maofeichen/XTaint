@@ -30,6 +30,7 @@ class XT_Liveness
 
      static std::vector<std::string> analyze_alive_buffer(std::vector<std::string> &);
      static std::vector<Func_Call_Cont_Buf_t> merge_continue_buffer(std::vector<std::string> &);
+     static std::vector<Func_Call_Cont_Buf_t> filter_continue_buffer(std::vector<Func_Call_Cont_Buf_t> &);
      
  }; 
 #endif

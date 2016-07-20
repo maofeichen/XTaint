@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+// Buffer Record
 struct Buf_Rec_t{
     std::string src_flag;
     std::string src_addr;
@@ -20,12 +21,14 @@ struct Buf_Rec_t{
     unsigned int size;
 };
 
+// Continue Buffer
 struct Cont_Buf_t
 {
     unsigned long begin_addr;
     unsigned long size;
 };
 
+// Continues Buffers per function call
 struct Func_Call_Cont_Buf_t
 {
     std::string call_mark;
