@@ -37,4 +37,60 @@ struct Func_Call_Cont_Buf_t
     std::string sec_ret_mark;
     std::vector<Cont_Buf_t> cont_buf;
 };
+
+struct Node{
+    std::string flag;
+    std::string addr;
+    std::string val;
+
+    unsigned long i_addr;
+    unsigned int sz;
+};
+
+bool operator==(Node a, Node b)
+{
+    return a.flag == b.flag &&
+               a.addr == b.addr &&
+               a.val == b.val &&
+               a.sz == b.sz;
+}
+
+struct NodeHash
+{
+    std::size_t operator()(const Node &a) const {
+        size_t h1 ( std::hash<int>()(a.i_addr) );
+        size_t h2 ( std::hash<int>()(a.sz) );
+        return h1 ^ (h2 << 1);    
+    }
+};
+
+struct RegularRec
+{
+    struct Node src;
+    struct Node dst;
+};
+
+struct MarkRec
+{
+    struct Node mark;
+};
+
+// if a mark, then src becomes the mark
+struct Rec
+{
+    bool isMark;
+    struct RegularRec regular;
+    // union{
+    //     struct RegularRec regular;
+    //     struct MarkRec mark;
+    // };
+};
+
+struct NodePropagate
+{
+    bool isSrc;
+    unsigned int pos;
+    struct Node n; 
+};
+
 #endif
