@@ -16,6 +16,7 @@ namespace flag
     const string XT_CALL_INSN = "14";
     const string XT_CALL_INSN_FF2    = "4e";
     const string XT_CALL_INSN_2nd    = "4b";
+    const string XT_CALL_INSN_3nd   = "4d";
 
     const string XT_RET_INSN           = "18";
     const string XT_RET_INSN_2nd   = "4c";

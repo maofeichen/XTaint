@@ -1,4 +1,5 @@
 #include <cassert>
+#include "xt_flag.h"
 #include "xt_util.h"
 
 vector<string> XT_Util::split(const char *s, char c)
@@ -41,6 +42,23 @@ bool XT_Util::is_pair_function_mark(string &s_call, string &s_ret)
 bool XT_Util::equal_mark(string &s1, const string &s2)
 {
     if(s1.substr(0,2).compare(s2) == 0)
+        return true;
+    else
+        return false;
+}
+
+bool XT_Util::isMarkRecord(string &flag)
+{
+    if(XT_Util::equal_mark(flag, flag::XT_SIZE_BEGIN) || 
+        XT_Util::equal_mark(flag, flag::XT_SIZE_END) || 
+        XT_Util::equal_mark(flag, flag::XT_INSN_ADDR) || 
+        XT_Util::equal_mark(flag, flag::XT_TCG_DEPOSIT) ||
+        XT_Util::equal_mark(flag, flag::XT_CALL_INSN) || 
+        XT_Util::equal_mark(flag, flag::XT_CALL_INSN_FF2) ||
+        XT_Util::equal_mark(flag, flag::XT_CALL_INSN_2nd) ||
+        XT_Util::equal_mark(flag, flag::XT_CALL_INSN_3nd) ||
+        XT_Util::equal_mark(flag, flag::XT_RET_INSN) ||
+        XT_Util::equal_mark(flag, flag::XT_RET_INSN_2nd) )
         return true;
     else
         return false;

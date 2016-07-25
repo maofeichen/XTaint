@@ -47,7 +47,7 @@ struct Node{
     unsigned int sz;
 };
 
-bool operator==(Node a, Node b)
+inline bool operator==(Node a, Node b)
 {
     return a.flag == b.flag &&
                a.addr == b.addr &&
@@ -88,6 +88,7 @@ struct Rec
 
 struct NodePropagate
 {
+    unsigned long id;
     bool isSrc;
     unsigned int pos;
     struct Node n; 

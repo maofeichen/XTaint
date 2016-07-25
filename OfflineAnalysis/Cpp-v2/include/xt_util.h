@@ -11,5 +11,6 @@ public:
     static vector<string> split(const char*, char);
     static bool equal_mark(string &, const string &);
     static bool is_pair_function_mark(string &, string &);
+    static bool isMarkRecord(string &flag);
 }; 
 #endif
