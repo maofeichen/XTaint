@@ -89,6 +89,9 @@ struct Rec
 struct NodePropagate
 {
     unsigned long id;
+    unsigned long parentId;
+    unsigned long layer;
+    std::string insnAddr;
     bool isSrc;
     unsigned int pos;
     struct Node n; 

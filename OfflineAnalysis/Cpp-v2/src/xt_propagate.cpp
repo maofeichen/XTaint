@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <queue>
+#include <iostream>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -13,24 +14,27 @@ using namespace std;
 
 Propagate::Propagate(){}
 
-std::unordered_set<Node, NodeHash> Propagate::searchAvalanche(vector<string> &log)
+unordered_set<Node, NodeHash> Propagate::searchAvalanche(vector<string> &log,
+                                                         vector<NodePropagate> &allPropgateRes)
 {
-    std::unordered_set<Node, NodeHash> propagate_res;
+    unordered_set<Node, NodeHash> propagate_res;
     vector<Rec> v_rec;
     NodePropagate s;
     bool isFound = false;
 
     v_rec = initRec(log);
 
-    s.id = 0;
     s.isSrc = true;
+    s.parentId = 0;
+    s.layer = 0;
+
     s.n.flag = "34";
     s.n.addr = "bffff753";
     s.n.val = "34";
     s.n.i_addr = std::stoul(s.n.addr, nullptr, 16);
     s.n.sz = 8;
 
-    int i = 0;
+    unsigned int i = 0;
     for(vector<Rec>::iterator it = v_rec.begin(); it != v_rec.end(); ++it){
         if(!(*it).isMark){
             if(s.n.flag == (*it).regular.src.flag &&
@@ -44,8 +48,10 @@ std::unordered_set<Node, NodeHash> Propagate::searchAvalanche(vector<string> &lo
     } // end for
 
     if(isFound){
+        s.id = i * 2;
         s.pos = i;
-        propagate_res = bfs_old(s, v_rec);
+        s.insnAddr = getInsnAddr(i, v_rec);
+        propagate_res = bfs_old(s, v_rec, allPropgateRes);
     }
     return propagate_res;
 }
@@ -57,8 +63,12 @@ vector<Rec> Propagate::initRec(vector<string> &log)
 
     Rec rec;
     Node src, dst;
+    int i;
 
+//    i = 0;
     for(vector<string>::iterator it = log.begin(); it != log.end(); ++it){
+//        if(i == 450)
+//            std::cout << "Index: " << i << endl;
         v_single_rec = XT_Util::split( (*it).c_str(), '\t');
         if(XT_Util::isMarkRecord(v_single_rec[0]) ){
             rec.isMark = true;
@@ -68,7 +78,27 @@ vector<Rec> Propagate::initRec(vector<string> &log)
             rec.regular = initRegularRecord(v_single_rec);
         }
         v_rec.push_back(rec);
+        i++;
     }
+
+//    i = 0;
+//    for(auto s : v_rec){
+//        std::cout << "Index: " << i << endl;
+//        if(s.isMark){
+//            std::cout << "mark flag: " << s.regular.src.flag << std::endl;
+//            std::cout << "mark addr: " << s.regular.src.addr << std::endl;
+//            std::cout << "mark val: " << s.regular.src.val << std::endl;
+//        } else {
+//            std::cout << "src flag: " << s.regular.src.flag << std::endl;
+//            std::cout << "src addr: " << s.regular.src.addr << std::endl;
+//            std::cout << "src val: " << s.regular.src.val << std::endl;
+//
+//            std::cout << "dst flag: " << s.regular.src.flag << std::endl;
+//            std::cout << "dst addr: " << s.regular.src.addr << std::endl;
+//            std::cout << "dst val: " << s.regular.src.val << std::endl;
+//        }
+//        i++;
+//    }
     return v_rec;
 } 
 
@@ -119,7 +149,7 @@ unordered_set<Node, NodeHash> Propagate::bfs(NodePropagate &s, vector<Rec> &r)
                     isValidPropagate = is_valid_propagate(currNode, currRec, r);
 
                     if(isValidPropagate){
-                        nextNode = propagte_src(r, i);
+                        nextNode = propagte_src(currNode, r, i);
                         // is it a load opreration? If so, then it is a memory buffer
 
                     } // end isValidPropagate
@@ -130,7 +160,9 @@ unordered_set<Node, NodeHash> Propagate::bfs(NodePropagate &s, vector<Rec> &r)
     return res;
 }
 
-unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s, vector<Rec> &v_rec)
+unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s,
+                                                 vector<Rec> &v_rec,
+                                                 vector<NodePropagate> &allPropgateRes)
 {
     unordered_set<Node, NodeHash> res_buffer;
     vector<NodePropagate> v_propagate_buffer;
@@ -150,6 +182,7 @@ unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s, vector<Rec> &
             isSameInsn = true;
 
             currNode = q_propagate.front();
+            allPropgateRes.push_back(currNode); // record all propagate result for debug
 
             // if a source node
             if(currNode.isSrc){
@@ -185,7 +218,7 @@ unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s, vector<Rec> &
                         isValidPropagate = is_valid_propagate(currNode, currRec, v_rec);
 
                         if(isValidPropagate){
-                            nextNode = propagte_src(v_rec, i);
+                            nextNode = propagte_src(currNode, v_rec, i);
                             // is it a load opreration? If so, then it is a memory buffer
                             if(XT_Util::equal_mark(nextNode.n.flag, flag::TCG_QEMU_LD) ){
                                 insert_buffer_node(nextNode, v_propagate_buffer, numHit);
@@ -217,6 +250,7 @@ unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s, vector<Rec> &
 
         if(!v_propagate_buffer.empty() ){
             currNode = v_propagate_buffer[0];
+            allPropgateRes.push_back(currNode);
             v_propagate_buffer.erase(v_propagate_buffer.begin() );
 
             // memory buffer only contains buffer nodes are as src
@@ -234,6 +268,19 @@ unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s, vector<Rec> &
     return res_buffer;
 }
 
+inline string Propagate::getInsnAddr(unsigned int &idx, vector<Rec> &v_rec)
+{
+   unsigned int i = idx;
+   while(i > 0){
+       if(v_rec[i].isMark &&
+          XT_Util::equal_mark(v_rec[i].regular.src.flag, flag::XT_INSN_ADDR) )
+           return v_rec[i].regular.src.addr;
+       i--;
+   }
+   return "";
+}
+
+
 inline NodePropagate Propagate::propagate_dst(NodePropagate &s, vector<Rec> &r)
 {
     NodePropagate d;
@@ -241,7 +288,10 @@ inline NodePropagate Propagate::propagate_dst(NodePropagate &s, vector<Rec> &r)
 
     d.isSrc = false;
     d.pos = s.pos;
+    d.parentId = s.id;
     d.id = s.id + 1;
+    d.layer = s.layer + 1;
+    d.insnAddr = getInsnAddr(d.pos, r);
 
     d.n.flag = r[i].regular.dst.flag;
     d.n.addr = r[i].regular.dst.addr;
@@ -252,13 +302,16 @@ inline NodePropagate Propagate::propagate_dst(NodePropagate &s, vector<Rec> &r)
     return d;
 }
 
-inline NodePropagate Propagate::propagte_src(std::vector<Rec> &v_rec, int i)
+inline NodePropagate Propagate::propagte_src(NodePropagate &d, std::vector<Rec> &v_rec, int i)
 {
     NodePropagate s;
 
     s.isSrc = true;
     s.pos = i;
+    s.parentId = d.id;
     s.id = i * 2;
+    s.layer = d.layer + 1;
+    s.insnAddr = getInsnAddr(s.pos, v_rec);
 
     s.n.flag = v_rec[i].regular.src.flag;
     s.n.addr = v_rec[i].regular.src.addr;
@@ -286,8 +339,8 @@ inline void Propagate::insert_propagate_result(Node &n, std::unordered_set<Node,
 // else otherwise
 //      case 1 - dst.addr == current record src.addr
 inline bool Propagate::is_valid_propagate(NodePropagate &currNode, 
-                                                                    Rec &currRec, 
-                                                                    vector<Rec> &v_rec)
+                                          Rec &currRec,
+                                          vector<Rec> &v_rec)
 {
     bool isValidPropagate, isStore; 
 
