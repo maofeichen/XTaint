@@ -6,6 +6,7 @@ TARGET = xt_main
 CC := g++
 CFLAGS := -g -std=c++11
 INC = -I include
+DEBUG = -DEBUG
 
 LINKER = g++ -o
 LFLAGS = -g
@@ -25,7 +26,7 @@ $(BIN_DIR)/$(TARGET) : $(OBJECTS)
 	@echo "Linking complete!"
 
 $(OBJECTS): $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cpp
-	@$(CC) $(CFLAGS) $(INC) -c $< -o $@
+	@$(CC) $(CFLAGS) $(INC) $(DEBUG) -c $< -o $@
 	@echo "Compiled "$<" successfully!"
 
 

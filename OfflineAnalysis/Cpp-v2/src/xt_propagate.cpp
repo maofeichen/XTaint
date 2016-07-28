@@ -10,12 +10,14 @@
 #include <unordered_set>
 #include <vector>
 
+#define DEBUG 1
+
 using namespace std;
 
 Propagate::Propagate(){}
 
 unordered_set<Node, NodeHash> Propagate::searchAvalanche(vector<string> &log,
-                                                         vector<NodePropagate> &allPropgateRes)
+                                                                                                        vector<NodePropagate> &allPropgateRes)
 {
     unordered_set<Node, NodeHash> propagate_res;
     vector<Rec> v_rec;
@@ -161,8 +163,8 @@ unordered_set<Node, NodeHash> Propagate::bfs(NodePropagate &s, vector<Rec> &r)
 }
 
 unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s,
-                                                 vector<Rec> &v_rec,
-                                                 vector<NodePropagate> &allPropgateRes)
+                                                                                        vector<Rec> &v_rec,
+                                                                                        vector<NodePropagate> &allPropgateRes)
 {
     unordered_set<Node, NodeHash> res_buffer;
     vector<NodePropagate> v_propagate_buffer;
@@ -183,6 +185,12 @@ unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s,
 
             currNode = q_propagate.front();
             allPropgateRes.push_back(currNode); // record all propagate result for debug
+#ifdef DEBUG
+            // if(currNode.insnAddr == "804945d")
+            //     cout << "DEBUG: set breakpoint Insn Addr: 804945d" << endl;
+            if(currNode.id == 10595)
+                cout << "DEBUG: set breakpoint ID: 10595" << endl;
+#endif
 
             // if a source node
             if(currNode.isSrc){
@@ -252,6 +260,12 @@ unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s,
             currNode = v_propagate_buffer[0];
             allPropgateRes.push_back(currNode);
             v_propagate_buffer.erase(v_propagate_buffer.begin() );
+#ifdef DEBUG
+            // if(currNode.insnAddr == "804945d")
+            //     cout << "DEBUG: set breakpoint Insn Addr: 804945d" << endl;
+            if(currNode.id == 10595)
+                cout << "DEBUG: set breakpoint ID: 10595" << endl;
+#endif
 
             // memory buffer only contains buffer nodes are as src
             if(currNode.isSrc){
@@ -339,8 +353,8 @@ inline void Propagate::insert_propagate_result(Node &n, std::unordered_set<Node,
 // else otherwise
 //      case 1 - dst.addr == current record src.addr
 inline bool Propagate::is_valid_propagate(NodePropagate &currNode, 
-                                          Rec &currRec,
-                                          vector<Rec> &v_rec)
+                                                                    Rec &currRec,
+                                                                    vector<Rec> &v_rec)
 {
     bool isValidPropagate, isStore; 
 
@@ -351,8 +365,9 @@ inline bool Propagate::is_valid_propagate(NodePropagate &currNode,
         isStore = false;
 
     // is the dst node a store operation, indicating node is a memory buffer
+    // then only the addresses are same is valid?
     if(isStore){
-        if(currNode.n.addr == currRec.regular.src.addr)
+        if(currNode.n.addr == currRec.regular.src.addr /*&& currNode.n.val == currRec.regular.src.val*/)
             isValidPropagate = true;
     }else{
         // case 1
@@ -373,8 +388,10 @@ inline bool Propagate::is_valid_propagate(NodePropagate &currNode,
         }
         // case 2
         // load pointer: current node val is same with current record's addr
-        else if(currNode.n.val == currRec.regular.src.addr && 
-                    XT_Util::equal_mark(currNode.n.flag, flag::TCG_QEMU_LD) )
+//        else if(currNode.n.val == currRec.regular.src.addr &&
+//                    XT_Util::equal_mark(currNode.n.flag, flag::TCG_QEMU_LD) )
+        // No need to equal Qemu Load
+        else if(currNode.n.val == currRec.regular.src.addr && currNode.n.val.length() >= 7)
             isValidPropagate = true;
     }
 
