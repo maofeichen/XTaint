@@ -3,12 +3,12 @@
 
 TARGET = xt_main
 
-CC := g++
+CC := g++-4.9
 CFLAGS := -g -std=c++11
 INC = -I include
 DEBUG = -DEBUG
 
-LINKER = g++ -o
+LINKER = g++-4.9 -o
 LFLAGS = -g
 
 # OBJS = xt_main.o xt_file.o
