@@ -26,10 +26,13 @@ private:
     std::vector<Rec> initRec(std::vector<std::string> &log); 
 
     std::unordered_set<Node, NodeHash> bfs(NodePropagate &s, std::vector<Rec> &r);
-    std::unordered_set<Node, NodeHash> bfs_old(NodePropagate &s, std::vector<Rec> &v_rec, std::vector<NodePropagate> &allPropgateRes);
+    std::unordered_set<Node, NodeHash> bfs_old(NodePropagate &s, 
+                                               std::vector<Rec> &v_rec, 
+                                               std::vector<NodePropagate> &allPropgateRes);
 public:
     Propagate();
 
-    std::unordered_set<Node, NodeHash> searchAvalanche(std::vector<std::string> &log, std::vector<NodePropagate> &allPropgateRes);
+    std::unordered_set<Node, NodeHash> searchAvalanche(std::vector<std::string> &log, 
+                                                       std::vector<NodePropagate> &allPropgateRes);
 };
 #endif

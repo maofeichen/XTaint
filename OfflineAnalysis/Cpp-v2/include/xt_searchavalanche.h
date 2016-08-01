@@ -1,6 +1,7 @@
 #ifndef XT_SEARCHAVALANCHE_H
 #define XT_SEARCHAVALANCHE_H
 
+#include "xt_data.h"
 #include <string>
 #include <vector>
 
@@ -30,10 +31,15 @@ struct AvalancheEffectResult
 
 class SearchAvalanche
 {
+private:
+	std::vector<Func_Call_Cont_Buf_t> m_vFuncCallContBuf;
+
+	std::vector<FunctionCallBuffer> getFunctionCallBuffer(std::vector<Func_Call_Cont_Buf_t> v);	
 public:
 	SearchAvalanche();
-	~SearchAvalanche();
+	// ~SearchAvalanche();
+	SearchAvalanche(std::vector<Func_Call_Cont_Buf_t> v_funcCallContBuf);
 
-	AvalancheEffectResult searchAvalanche(FunctionCallBuffer &in, FunctionCallBuffer &out);
+	void searchAvalanche();
 };
 #endif
