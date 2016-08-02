@@ -156,6 +156,32 @@ vector<string> XT_PreProcess::clean_nonempty_function_mark(vector<string> &v)
     return v_new;
 }
 
+
+// Convert string xt log format to Rec format
+std::vector<Rec> XT_PreProcess::convertToRec(std::vector<std::string> &log)
+{
+    vector<Rec> v_rec;
+    vector<string> v_log, v_single_rec;
+
+    Rec rec;
+    Node src, dst;
+    int i;
+
+    for(vector<string>::iterator it = log.begin(); it != log.end(); ++it){
+        v_single_rec = XT_Util::split( (*it).c_str(), '\t');
+        if(XT_Util::isMarkRecord(v_single_rec[0]) ){
+            rec.isMark = true;
+            rec.regular = initMarkRecord(v_single_rec);
+        }else{
+            rec.isMark = false;
+            rec.regular = initRegularRecord(v_single_rec);
+        }
+        v_rec.push_back(rec);
+        i++;
+    }
+    return v_rec;
+} 
+
 // for each qemu ld/st record, add size infor to the end of each
 vector<string> XT_PreProcess::add_mem_size_info(vector<string> &v)
 {
@@ -188,4 +214,44 @@ vector<string> XT_PreProcess::add_mem_size_info(vector<string> &v)
         v_new.push_back(*it);
     }
     return v_new;
+}
+
+inline RegularRec XT_PreProcess::initMarkRecord(vector<string> &singleRec)
+{
+    RegularRec mark;
+
+    mark.src.flag = singleRec[0];
+    mark.src.addr = singleRec[1];
+    mark. src.val = singleRec[2];
+    mark.src.i_addr = 0;
+    mark.src.sz = 0;
+
+    return mark;
+}
+
+inline RegularRec XT_PreProcess::initRegularRecord(vector<string> &singleRec)
+{
+    RegularRec reg;
+
+    reg.src.flag = singleRec[0];
+    reg.src.addr = singleRec[1];
+    reg.src.val = singleRec[2];
+    reg.src.i_addr = 0;
+    reg.src.sz = 0;
+
+    reg.dst.flag = singleRec[3];
+    reg.dst.addr = singleRec[4];
+    reg.dst.val = singleRec[5];
+    reg.dst.i_addr = 0;
+    reg.dst.sz = 0;
+
+    if(XT_Util::equal_mark(singleRec[0], flag::TCG_QEMU_LD) ){
+        reg.src.i_addr = std::stoul(singleRec[1], nullptr, 16);
+        reg.src.sz = std::stoul(singleRec[6], nullptr, 10);
+    } else if(XT_Util::equal_mark(singleRec[0], flag::TCG_QEMU_ST) ) {
+        reg.dst.i_addr = std::stoul(singleRec[4], nullptr, 16);
+        reg.dst.sz = std::stoul(singleRec[6], nullptr, 10);
+    }
+
+    return reg;
 }

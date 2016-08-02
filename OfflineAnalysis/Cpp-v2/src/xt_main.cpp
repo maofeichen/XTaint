@@ -21,6 +21,7 @@ int main(int argc, char const *argv[])
     vector<string> xt_log_aes, xt_log_fake, log_refine;
     vector<string> aes_alive_buf;
     vector<Func_Call_Cont_Buf_t> v_func_call_cont_buf;
+    vector<Rec> logAESRec;
 
     // ----------------------------------------
     // Test Case 1: fake data xtaint log
@@ -45,9 +46,13 @@ int main(int argc, char const *argv[])
     xt_log_aes = XT_PreProcess::add_mem_size_info(xt_log_aes);
     // xt_file_aes.write(XT_RESULT_PATH + XT_FILE_AES + XT_ADD_SIZE_INFO + XT_FILE_EXT, xt_log_aes);
 
+
     // buffer liveness analysis
     aes_alive_buf = XT_Liveness::analyze_alive_buffer(xt_log_aes);
-    // xt_file_aes.write(XT_RESULT_PATH + XT_FILE_AES + XT_ALIVE_BUF + XT_FILE_EXT, aes_alive_buf); 
+    // xt_file_aes.write(XT_RESULT_PATH + XT_FILE_AES + XT_ALIVE_BUF + XT_FILE_EXT, aes_alive_buf);
+
+    // Convert string format to Rec format
+    logAESRec = xt_preprocess.convertToRec(xt_log_aes); 
 
     // merge continues buffers
     v_func_call_cont_buf = XT_Liveness::merge_continue_buffer(aes_alive_buf);
@@ -55,7 +60,7 @@ int main(int argc, char const *argv[])
     // xt_file_aes.write_continue_buffer(XT_RESULT_PATH + XT_FILE_AES + CONT_BUF + XT_FILE_EXT, v_func_call_cont_buf);
 
     // Searches avalanche based on continuous buffer of liveness analysis
-    SearchAvalanche sa(v_func_call_cont_buf);
+    SearchAvalanche sa(v_func_call_cont_buf, logAESRec);
     sa.searchAvalanche();
 
     // Propagate propa;
