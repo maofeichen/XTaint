@@ -27,13 +27,17 @@ private:
 
     std::unordered_set<Node, NodeHash> bfs(NodePropagate &s, std::vector<Rec> &r);
     std::unordered_set<Node, NodeHash> bfs_old(NodePropagate &s, 
-                                               std::vector<Rec> &v_rec, 
-                                               std::vector<NodePropagate> &allPropgateRes);
+                                               std::vector<Rec> &v_rec);   
+    std::unordered_set<Node, NodeHash> bfs_old_debug(NodePropagate &s, 
+                                                     std::vector<Rec> &v_rec, 
+                                                     std::vector<NodePropagate> &allPropgateRes);
 public:
     Propagate();
 
     // INGORE!!!
     std::unordered_set<Node, NodeHash> searchAvalanche(std::vector<std::string> &log, 
                                                        std::vector<NodePropagate> &allPropgateRes);
+    std::unordered_set<Node, NodeHash> getPropagateResult(NodePropagate &s, 
+                                                          std::vector<Rec> &vRec);
 };
 #endif

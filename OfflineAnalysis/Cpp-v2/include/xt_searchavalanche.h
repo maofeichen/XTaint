@@ -47,6 +47,7 @@ private:
 	inline bool isKernelAddress(unsigned int addr);
 	inline bool isMarkMatch(std::string &mark, Rec &r);
 	inline bool isInRange(unsigned long &addr, Node &node);
+	inline bool isSameNode(NodePropagate &a, NodePropagate &b);
 
 	NodePropagate initialBeginNode(FunctionCallBuffer &buf, unsigned long &addr, std::vector<Rec> &logRec);
 	std::vector<FunctionCallBuffer> getFunctionCallBuffer(std::vector<Func_Call_Cont_Buf_t> &v);	

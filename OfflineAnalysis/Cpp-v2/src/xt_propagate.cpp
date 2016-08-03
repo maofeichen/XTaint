@@ -17,7 +17,7 @@ using namespace std;
 Propagate::Propagate(){}
 
 unordered_set<Node, NodeHash> Propagate::searchAvalanche(vector<string> &log,
-                                                                                                        vector<NodePropagate> &allPropgateRes)
+                                                         vector<NodePropagate> &allPropgateRes)
 {
     unordered_set<Node, NodeHash> propagate_res;
     vector<Rec> v_rec;
@@ -53,9 +53,15 @@ unordered_set<Node, NodeHash> Propagate::searchAvalanche(vector<string> &log,
         s.id = i * 2;
         s.pos = i;
         s.insnAddr = getInsnAddr(i, v_rec);
-        propagate_res = bfs_old(s, v_rec, allPropgateRes);
+        propagate_res = bfs_old_debug(s, v_rec, allPropgateRes);
     }
     return propagate_res;
+}
+
+unordered_set<Node, NodeHash> Propagate::getPropagateResult(NodePropagate &s, 
+                                                            std::vector<Rec> &vRec)
+{
+    return bfs_old(s, vRec);
 }
 
 vector<Rec> Propagate::initRec(vector<string> &log)
@@ -162,9 +168,113 @@ unordered_set<Node, NodeHash> Propagate::bfs(NodePropagate &s, vector<Rec> &r)
     return res;
 }
 
-unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s,
-                                                                                        vector<Rec> &v_rec,
-                                                                                        vector<NodePropagate> &allPropgateRes)
+unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s, vector<Rec> &v_rec)
+{
+    unordered_set<Node, NodeHash> res_buffer;
+    vector<NodePropagate> v_propagate_buffer;
+    queue<NodePropagate> q_propagate;
+
+    NodePropagate currNode, nextNode;
+    struct Rec currRec;
+    int numHit;
+    bool isValidPropagate, isSameInsn;
+
+    v_propagate_buffer.push_back(s);
+    while(!v_propagate_buffer.empty() ){
+    L_Q_PROPAGATE:
+        // non buffer propagation
+        while(!q_propagate.empty() ){
+            numHit = 0;
+            isSameInsn = true;
+
+            currNode = q_propagate.front();
+
+            // if a source node
+            if(currNode.isSrc){
+                unsigned int i = currNode.pos;
+                // can't be a mark
+                assert( v_rec[i].isMark == false);
+                nextNode = propagate_dst(currNode, v_rec);
+                q_propagate.push(nextNode);
+                numHit++;
+
+                // if it is store to buffer operation, save to propagate buffer result
+                Node node = nextNode.n;
+                if(XT_Util::equal_mark(node.flag, flag::TCG_QEMU_ST) )
+                    insert_propagate_result(node, res_buffer);
+            }
+            // if a dst node
+            // find valid propagation from dst -> src for afterwards records
+            else{
+                numHit = 0;
+                isSameInsn = true;  // assume belongs to same insn at first
+                vector<Rec>::size_type i = currNode.pos + 1;
+                for(; i != v_rec.size(); i++) {
+                    isValidPropagate = false;
+                    currRec = v_rec[i];
+
+                    // if cross insn boundary
+                    if(isSameInsn)
+                        if(currRec.isMark && 
+                            XT_Util::equal_mark(currRec.regular.src.flag, flag::XT_INSN_ADDR) )
+                            isSameInsn = false;
+
+                    if(!currRec.isMark){
+                        isValidPropagate = is_valid_propagate(currNode, currRec, v_rec);
+
+                        if(isValidPropagate){
+                            nextNode = propagte_src(currNode, v_rec, i);
+                            // is it a load opreration? If so, then it is a memory buffer
+                            if(XT_Util::equal_mark(nextNode.n.flag, flag::TCG_QEMU_LD) ){
+                                insert_buffer_node(nextNode, v_propagate_buffer, numHit);
+
+                                // also save to propagate result!!!
+                                Node node = nextNode.n;
+                                insert_propagate_result(node, res_buffer);
+                            } else{ // if not a buffer node
+                                if(is_save_to_q_propagate(isSameInsn, numHit) ){
+                                    q_propagate.push(nextNode);
+                                    numHit++;
+                                }
+                            }
+                        } // end isValidPropagate
+                    } // end isMark
+
+                    // if not belong to same instruction and
+                    // already have hit, and
+                    // not a memory buffer
+                    // can break the loop
+                    if(!isSameInsn && 
+                        numHit >= 1 && 
+                        !XT_Util::equal_mark(currNode.n.flag, flag::TCG_QEMU_ST) )
+                            break;
+                } // end of for loop
+            } // end dst node case
+            q_propagate.pop();  
+        } // end while q_propagate
+
+        if(!v_propagate_buffer.empty() ){
+            currNode = v_propagate_buffer[0];
+            v_propagate_buffer.erase(v_propagate_buffer.begin() );
+
+            // memory buffer only contains buffer nodes are as src
+            if(currNode.isSrc){
+                nextNode = propagate_dst(currNode, v_rec);
+                q_propagate.push(nextNode);
+                numHit++;
+            }
+        }
+
+        if(!q_propagate.empty() )
+            goto L_Q_PROPAGATE;
+    } // end while v_propagate_buffer
+
+    return res_buffer;
+} 
+
+unordered_set<Node, NodeHash> Propagate::bfs_old_debug(NodePropagate &s,
+                                                       vector<Rec> &v_rec,
+                                                       vector<NodePropagate> &allPropgateRes)
 {
     unordered_set<Node, NodeHash> res_buffer;
     vector<NodePropagate> v_propagate_buffer;

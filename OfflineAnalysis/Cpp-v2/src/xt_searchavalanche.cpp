@@ -1,4 +1,5 @@
 #include "xt_flag.h"
+#include "xt_propagate.h"
 #include "xt_searchavalanche.h"
 #include "xt_util.h"
 
@@ -97,6 +98,23 @@ inline bool SearchAvalanche::isMarkMatch(string &mark, Rec &r)
 inline bool SearchAvalanche::isInRange(unsigned long &addr, Node &node)
 {
 	if(addr >= node.i_addr && addr < node.i_addr + node.sz / BIT_TO_BYTE)
+		return true;
+	else return false;
+}
+
+inline bool SearchAvalanche::isSameNode(NodePropagate &a, NodePropagate &b)
+{
+	if(a.isSrc 		== b.isSrc && 
+	   a.id 		== b.id && 
+	   a.parentId 	== b.parentId && 
+	   a.layer		== b.layer && 
+	   a.pos 		== b.pos && 
+	   a.insnAddr 	== b.insnAddr && 
+	   a.n.flag 	== b.n.flag && 
+	   a.n.addr 	== b.n.addr && 
+	   a.n.val 		== b.n.val && 
+	   a.n.i_addr 	== b.n.i_addr && 
+	   a.n.sz 		== b.n.sz)
 		return true;
 	else return false;
 }
@@ -202,7 +220,9 @@ vector<FunctionCallBuffer> SearchAvalanche::getFunctionCallBuffer(vector<Func_Ca
 
 void SearchAvalanche::searchAvalancheBetweenInAndOut(FunctionCallBuffer &in, FunctionCallBuffer &out)
 {
-	NodePropagate s;
+	NodePropagate prev_s, curr_s;
+	unordered_set<Node, NodeHash> propagateResult;
+	Propagate propagate;
 	unsigned int inBytes;
 	unsigned long inBeginAddr;
 
@@ -227,7 +247,16 @@ void SearchAvalanche::searchAvalancheBetweenInAndOut(FunctionCallBuffer &in, Fun
 	inBytes = in.buffer.size / BIT_TO_BYTE;
 	inBeginAddr = in.buffer.beginAddr;
 	for(int byteIndex = 0; byteIndex < inBytes; byteIndex++){
-		s = initialBeginNode(in, inBeginAddr, m_logAesRec);
+		prev_s = curr_s;
+		curr_s = initialBeginNode(in, inBeginAddr, m_logAesRec);
 		inBeginAddr++;
+
+		// Temporary Optimize
+		// No need to search propagte result for duplicate begin node
+		if(!isSameNode(prev_s, curr_s) ){
+			cout << "New begin node found!" << endl;
+			propagateResult = propagate.getPropagateResult(curr_s, m_logAesRec);
+			cout << "Number of propagate result: " << propagateResult.size() << endl;
+		}
 	}
 }
