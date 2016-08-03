@@ -39,9 +39,10 @@ public:
 	void searchAvalanche();
 
 private:
-	const unsigned int BIT_TO_BYTE	= 8;
-	const unsigned int BUFFER_LEN	= 64;
-	const unsigned long KERNEL_ADDR	= 0xC0000000;
+	const unsigned int 	BIT_TO_BYTE			= 8;
+	const unsigned int 	BUFFER_LEN			= 64;
+	const unsigned long KERNEL_ADDR			= 0xC0000000;
+	const unsigned int 	VALID_AVALANCHE_LEN	= 8;
 
 	inline std::string getInsnAddr(unsigned int &idx, std::vector<Rec> &vRec);
 	inline bool isKernelAddress(unsigned int addr);
@@ -49,8 +50,10 @@ private:
 	inline bool isInRange(unsigned long &addr, Node &node);
 	inline bool isSameNode(NodePropagate &a, NodePropagate &b);
 
-	NodePropagate initialBeginNode(FunctionCallBuffer &buf, unsigned long &addr, std::vector<Rec> &logRec);
+	std::vector<FunctionCallBuffer> getOutputAvalanche(std::unordered_set<Node, NodeHash> &propagateResult, 
+													   FunctionCallBuffer &out);
 	std::vector<FunctionCallBuffer> getFunctionCallBuffer(std::vector<Func_Call_Cont_Buf_t> &v);	
+	NodePropagate initialBeginNode(FunctionCallBuffer &buf, unsigned long &addr, std::vector<Rec> &logRec);
 	void searchAvalancheBetweenInAndOut(FunctionCallBuffer &in, FunctionCallBuffer &out);
 
 	std::vector<Func_Call_Cont_Buf_t> m_vFuncCallContBuf;

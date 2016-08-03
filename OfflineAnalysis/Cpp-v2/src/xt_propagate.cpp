@@ -179,7 +179,18 @@ unordered_set<Node, NodeHash> Propagate::bfs_old(NodePropagate &s, vector<Rec> &
     int numHit;
     bool isValidPropagate, isSameInsn;
 
-    v_propagate_buffer.push_back(s);
+    // If the start node is a dst node, should push to q_propagate instead 
+    // of v_propagate_buffer?
+    // Because there is rule below that any node in the v_propagate_buffer
+    // should be a src (even if it is memory buffer)
+    // v_propagate_buffer.push_back(s);
+
+    if(s.isSrc)
+        v_propagate_buffer.push_back(s);
+    else{
+        v_propagate_buffer.push_back(s);
+        q_propagate.push(s);
+    }
     while(!v_propagate_buffer.empty() ){
     L_Q_PROPAGATE:
         // non buffer propagation

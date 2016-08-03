@@ -48,12 +48,16 @@ void SearchAvalanche::searchAvalanche()
 		// if NOT kernel address and larger than 8 bytes
 		if(in->buffer.size >= BUFFER_LEN && 
 		   !isKernelAddress(in->buffer.beginAddr) ){
-
+			if(in->buffer.beginAddr == 0xbffff764)
+				cout << "Input buffer begin addr: " << hex << in->buffer.beginAddr << endl;
 			vector<FunctionCallBuffer>::iterator out = in + 1;
 			for(; out != v_functionCallBuffer.end(); ++out){
 				if(out->buffer.size >= BUFFER_LEN){
 					// search avalanche effect between in and out continuous buffer
 					searchAvalancheBetweenInAndOut(*in, *out);
+					// DEBUG
+					// if(in->buffer.beginAddr == 0xbffff764)
+					// 	searchAvalancheBetweenInAndOut(*in, *out);
 				}
 			} // end inner for
 		}
@@ -193,6 +197,54 @@ NodePropagate SearchAvalanche::initialBeginNode(FunctionCallBuffer &buf,
 	return s;
 }
 
+// Given the propagate result of in, and continuous out buffer,
+// returns the intersection of the two (essentially the avalanche effect)
+vector<FunctionCallBuffer> SearchAvalanche::getOutputAvalanche(unordered_set<Node, NodeHash> &propagateResult, 
+											  				   FunctionCallBuffer &out)
+{
+	vector<FunctionCallBuffer> vFuncCallBuffer;
+	FunctionCallBuffer funcCallBuffer;
+	unsigned long addr;
+	unsigned int size, numPropagateByte;
+	bool isHit;
+
+	funcCallBuffer.callMark 	= out.callMark;
+	funcCallBuffer.callSecMark 	= out.callSecMark;
+	funcCallBuffer.retMark 		= out.retMark;
+	funcCallBuffer.retSecMark 	= out.retSecMark;	
+	// funcCallBuffer.buffer.beginAddr = out.buffer.beginAddr;
+	funcCallBuffer.buffer.size 	= 0;
+
+	addr = out.buffer.beginAddr;
+	size = out.buffer.size / BIT_TO_BYTE;
+	numPropagateByte = 0;
+
+	for(int byteIdx = 0; byteIdx < size; byteIdx++){
+		isHit = false;
+		for(auto s : propagateResult){
+			if(addr >= s.i_addr && addr < s.i_addr / BIT_TO_BYTE){
+				isHit = true;
+				numPropagateByte++;
+				break;
+			}
+		}
+		if(isHit){
+			if(numPropagateByte == 1)
+				funcCallBuffer.buffer.beginAddr = addr;
+			funcCallBuffer.buffer.size += 1 * BIT_TO_BYTE;
+		} else{
+			if(numPropagateByte >= VALID_AVALANCHE_LEN)
+				vFuncCallBuffer.push_back(funcCallBuffer);
+			else{
+				numPropagateByte = 0;
+			}
+		}
+		addr++;
+	}
+
+	return vFuncCallBuffer;
+}
+
 // Transfers Func_Call_Cont_Buf_t to FunctionCallBuffer.
 // In Func_Call_Cont_Buf_t, each pair of call and ret mark may have multiple
 // continuous buffers.
@@ -221,27 +273,28 @@ vector<FunctionCallBuffer> SearchAvalanche::getFunctionCallBuffer(vector<Func_Ca
 void SearchAvalanche::searchAvalancheBetweenInAndOut(FunctionCallBuffer &in, FunctionCallBuffer &out)
 {
 	NodePropagate prev_s, curr_s;
-	unordered_set<Node, NodeHash> propagateResult;
 	Propagate propagate;
+	unordered_set<Node, NodeHash> propagateResult;
+	vector<FunctionCallBuffer> vOutAvalanche;
 	unsigned int inBytes;
 	unsigned long inBeginAddr;
 
 #ifdef DEBUG
-	cout << "Input buffer: " << endl;
-	cout << "Call Mark: " << in.callMark << '\t';
-	cout << "Sec Call Mark: " << in.callSecMark << endl;
-	cout << "Ret Mark: " << in.retMark << '\t';
-	cout << "Sec Ret Mark: " << in.retSecMark << endl;
-	cout << "Input Addr: " << hex << in.buffer.beginAddr << '\t';
-	cout << "Input Size: " << in.buffer.size << endl;
+	cout << "Input buffer: "	<< endl;
+	cout << "Call Mark: "		<< in.callMark << '\t';
+	cout << "Sec Call Mark: "	<< in.callSecMark << endl;
+	cout << "Ret Mark: "		<< in.retMark << '\t';
+	cout << "Sec Ret Mark: "	<< in.retSecMark << endl;
+	cout << "Input Addr: "		<< hex << in.buffer.beginAddr << '\t';
+	cout << "Input Size: "		<< in.buffer.size << endl;
 
-	cout << "Output buffer: " << endl;
-	cout << "Call Mark: " << out.callMark << '\t';
-	cout << "Sec Call Mark: " << out.callSecMark << endl;
-	cout << "Ret Mark: " << out.retMark << '\t';
-	cout << "Sec Ret Mark: " << out.retSecMark << endl;
-	cout << "Output Addr: " << hex << out.buffer.beginAddr << '\t';
-	cout << "Output Size: " << out.buffer.size << endl;
+	cout << "Output buffer: "	<< endl;
+	cout << "Call Mark: "		<< out.callMark << '\t';
+	cout << "Sec Call Mark: "	<< out.callSecMark << endl;
+	cout << "Ret Mark: "		<< out.retMark << '\t';
+	cout << "Sec Ret Mark: "	<< out.retSecMark << endl;
+	cout << "Output Addr: "		<< hex << out.buffer.beginAddr << '\t';
+	cout << "Output Size: "		<< out.buffer.size << endl;
 #endif
 
 	inBytes = in.buffer.size / BIT_TO_BYTE;
@@ -254,9 +307,18 @@ void SearchAvalanche::searchAvalancheBetweenInAndOut(FunctionCallBuffer &in, Fun
 		// Temporary Optimize
 		// No need to search propagte result for duplicate begin node
 		if(!isSameNode(prev_s, curr_s) ){
-			cout << "New begin node found!" << endl;
 			propagateResult = propagate.getPropagateResult(curr_s, m_logAesRec);
-			cout << "Number of propagate result: " << propagateResult.size() << endl;
+#ifdef DEBUG
+			// cout << "Number of propagate result: " << propagateResult.size() << endl;
+			// for(auto s : propagateResult){
+			// 	cout << "Addr: " << hex << s.i_addr << endl;
+			// 	cout << "Size: " << s.sz / BIT_TO_BYTE << " bytes" << endl;
+			// }
+#endif
+			vOutAvalanche = getOutputAvalanche(propagateResult, out);
+			if(!vOutAvalanche.empty())
+				cout << "get avalanche intersect with output: has result" << endl;
+			// ONLY for the 1st byte of IN, need to work with ...
 		}
 	}
 }
