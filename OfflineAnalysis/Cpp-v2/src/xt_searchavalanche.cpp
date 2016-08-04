@@ -21,6 +21,7 @@ SearchAvalanche::SearchAvalanche(vector<Func_Call_Cont_Buf_t> v_funcCallContBuf,
 void SearchAvalanche::searchAvalanche()
 {
 	vector<FunctionCallBuffer> v_functionCallBuffer;
+	AvalancheResBetweenInAndOut avalResInOut;
 
 	// for (auto s : m_vFuncCallContBuf){
 	// 	cout << "Call Mark: " << s.call_mark << endl;
@@ -48,20 +49,66 @@ void SearchAvalanche::searchAvalanche()
 		// if NOT kernel address and larger than 8 bytes
 		if(in->buffer.size >= BUFFER_LEN && 
 		   !isKernelAddress(in->buffer.beginAddr) ){
-			if(in->buffer.beginAddr == 0xbffff764)
-				cout << "Input buffer begin addr: " << hex << in->buffer.beginAddr << endl;
+
 			vector<FunctionCallBuffer>::iterator out = in + 1;
 			for(; out != v_functionCallBuffer.end(); ++out){
-				if(out->buffer.size >= BUFFER_LEN){
-					// search avalanche effect between in and out continuous buffer
-					searchAvalancheBetweenInAndOut(*in, *out);
+				if(!isSameFunctionCall(*in, *out) && 
+				   out->buffer.size >= BUFFER_LEN && 
+				   !isKernelAddress(out->buffer.beginAddr) && 
+				   in->buffer.beginAddr != out->buffer.beginAddr){
+					// cout << "In Buffer: " << endl; 
+					// cout << "Addr: " << hex << in->buffer.beginAddr << endl;
+					// cout << "Size: " << in->buffer.size / BIT_TO_BYTE << endl;
+					// cout << "Output Buffer: " << endl;
+					// cout << "Addr: " << hex << out->buffer.beginAddr << endl;
+					// cout << "Size: " << out->buffer.size / BIT_TO_BYTE << endl;
+
 					// DEBUG
-					// if(in->buffer.beginAddr == 0xbffff764)
-					// 	searchAvalancheBetweenInAndOut(*in, *out);
+					if(in->buffer.beginAddr == 0xbffff764 && 
+						out->buffer.beginAddr == 0xbffff744){
+						avalResInOut = searchAvalancheBetweenInAndOut(*in, *out);
+						printAvalResBetweenInAndOut(avalResInOut);
+						goto LABEL_OUTTER_LOOP;
+					}
+
+					// search avalanche effect between in and out continuous buffer
+					// searchAvalancheBetweenInAndOut(*in, *out);
 				}
 			} // end inner for
 		}
 	} // end outter for
+LABEL_OUTTER_LOOP:
+	cout << "search finish" << endl;
+}
+
+void SearchAvalanche::searchAvalancheDebug()
+{
+	vector<FunctionCallBuffer> vFunctionCallBuffer;
+	vFunctionCallBuffer = getFunctionCallBuffer(m_vFuncCallContBuf);
+	
+	vector<FunctionCallBuffer>::iterator in = vFunctionCallBuffer.begin();
+	for(; in != vFunctionCallBuffer.end(); ++in){
+		if(in->buffer.size >= BUFFER_LEN && 
+		   !isKernelAddress(in->buffer.beginAddr) && 
+		   in->buffer.beginAddr == 0xbffff744){
+		   	vector<FunctionCallBuffer>::iterator out = in + 1;
+		   	searchAvalancheBetweenInAndOutDebug(*in, *out);
+		   	break;
+		}
+	}
+}
+
+inline void SearchAvalanche::clearAvalacheResult(AvalancheRes &avalRes, 
+												 Buffer &avalIn, std::vector<Buffer> &vAvalOut)
+{
+	avalRes.avalIn.beginAddr = 0;
+	avalRes.avalIn.size = 0;
+	avalRes.vAvalOut.clear();
+
+	avalIn.beginAddr = 0;
+	avalIn.size = 0;
+	
+	vAvalOut.clear();
 }
 
 inline string SearchAvalanche::getInsnAddr(unsigned int &idx, vector<Rec> &vRec)
@@ -106,6 +153,16 @@ inline bool SearchAvalanche::isInRange(unsigned long &addr, Node &node)
 	else return false;
 }
 
+inline bool SearchAvalanche::isSameFunctionCall(FunctionCallBuffer &a, FunctionCallBuffer &b)
+{
+	if(a.callMark == b.callMark && 
+	   a.callSecMark == b.callSecMark && 
+	   a.retMark == b.retMark && 
+	   a.retSecMark == b.retSecMark)
+		return true;
+	else return false;
+}
+
 inline bool SearchAvalanche::isSameNode(NodePropagate &a, NodePropagate &b)
 {
 	if(a.isSrc 		== b.isSrc && 
@@ -121,6 +178,26 @@ inline bool SearchAvalanche::isSameNode(NodePropagate &a, NodePropagate &b)
 	   a.n.sz 		== b.n.sz)
 		return true;
 	else return false;
+}
+
+inline void SearchAvalanche::saveAvalancheResult(AvalancheRes &avalRes, Buffer &avalIn, std::vector<Buffer> &vAvalOut)
+{
+	avalRes.avalIn.beginAddr = avalIn.beginAddr;
+	avalRes.avalIn.size = avalIn.size;
+
+	for(auto s : vAvalOut){
+		avalRes.vAvalOut.push_back(s);
+	}
+}
+
+void SearchAvalanche::assignFunctionCallBuffer(FunctionCallBuffer &a, FunctionCallBuffer &b)
+{
+	a.callMark = b.callMark;
+	a.callSecMark = b.callSecMark;
+	a.retMark = b.retMark;
+	a.retSecMark = b.retSecMark;
+	a.buffer.beginAddr = b.buffer.beginAddr;
+	a.buffer.size = b.buffer.size;
 }
 
 NodePropagate SearchAvalanche::initialBeginNode(FunctionCallBuffer &buf, 
@@ -147,8 +224,8 @@ NodePropagate SearchAvalanche::initialBeginNode(FunctionCallBuffer &buf,
 
 #ifdef DEBUG
 	// functionCallIdx is the index of callMark in logRec vector
-	if(functionCallIdx != 0)
-		cout << "Function Call Idx: " << functionCallIdx << endl;
+	// if(functionCallIdx != 0)
+	// 	cout << "Function Call Idx: " << functionCallIdx << endl;
 #endif
 
 	if(functionCallIdx != 0){
@@ -199,8 +276,8 @@ NodePropagate SearchAvalanche::initialBeginNode(FunctionCallBuffer &buf,
 
 // Given the propagate result of in, and continuous out buffer,
 // returns the intersection of the two (essentially the avalanche effect)
-vector<FunctionCallBuffer> SearchAvalanche::getOutputAvalanche(unordered_set<Node, NodeHash> &propagateResult, 
-											  				   FunctionCallBuffer &out)
+vector<FunctionCallBuffer> SearchAvalanche::getAvalancheInNewSearch(unordered_set<Node, NodeHash> &propagateResult, 
+											  				   	    FunctionCallBuffer &out)
 {
 	vector<FunctionCallBuffer> vFuncCallBuffer;
 	FunctionCallBuffer funcCallBuffer;
@@ -222,7 +299,7 @@ vector<FunctionCallBuffer> SearchAvalanche::getOutputAvalanche(unordered_set<Nod
 	for(int byteIdx = 0; byteIdx < size; byteIdx++){
 		isHit = false;
 		for(auto s : propagateResult){
-			if(addr >= s.i_addr && addr < s.i_addr / BIT_TO_BYTE){
+			if(addr >= s.i_addr && addr < s.i_addr + s.sz / BIT_TO_BYTE){
 				isHit = true;
 				numPropagateByte++;
 				break;
@@ -242,7 +319,75 @@ vector<FunctionCallBuffer> SearchAvalanche::getOutputAvalanche(unordered_set<Nod
 		addr++;
 	}
 
+	// push the last avalache buffer if it is valid
+	if(funcCallBuffer.buffer.size / BIT_TO_BYTE >= VALID_AVALANCHE_LEN)
+		vFuncCallBuffer.push_back(funcCallBuffer);
+
 	return vFuncCallBuffer;
+}
+
+vector<Buffer> SearchAvalanche::getAvalancheInFirstByte(std::unordered_set<Node, NodeHash> &propagateRes, 
+														FunctionCallBuffer &out)
+{
+
+}
+
+vector<Buffer> SearchAvalanche::getAvalancheInRestByte(unordered_set<Node, NodeHash> &propagateRes, 
+									  				   vector<Buffer> &vAvalOut)
+{
+	Buffer buf;
+	vector<Buffer> vAvalOutNew;
+
+	for(vector<Buffer>::iterator it = vAvalOut.begin(); it != vAvalOut.end(); ++it){
+		buf = getAvalancheInRestByteOneBuffer(propagateRes, *it);
+		if(buf.beginAddr != 0 && 
+		   buf.size / BIT_TO_BYTE >= VALID_AVALANCHE_LEN)
+			vAvalOutNew.push_back(buf);
+	}
+
+	return vAvalOutNew; 
+}
+
+Buffer SearchAvalanche::getAvalancheInRestByteOneBuffer(unordered_set<Node, NodeHash> &propagateRes, 
+														Buffer &avalOut)
+{
+	Buffer buf;
+
+	unsigned int byteIndex, numPropagateByte;
+	unsigned long addr;
+	bool isHit;
+
+	buf.beginAddr = 0;
+	buf.size = 0;
+
+	numPropagateByte = 0;
+	addr = avalOut.beginAddr;
+	for(byteIndex = 0; byteIndex < (avalOut.size / BIT_TO_BYTE); byteIndex++){
+		isHit = false;
+		for(auto s : propagateRes){
+			if(addr >= s.i_addr && addr < s.i_addr + s.sz / BIT_TO_BYTE){
+				isHit = true;
+				numPropagateByte++;
+				break;
+			}
+		}
+		if(isHit){
+			if(numPropagateByte == 1)
+				buf.beginAddr = addr;
+			buf.size += 1 * BIT_TO_BYTE;
+		} else{
+			if(numPropagateByte >= VALID_AVALANCHE_LEN)
+				break;
+			else{
+				// No valid propagate result
+				buf.beginAddr = 0;
+				buf.size = 0;
+				break;
+			}
+		}
+		addr++;
+	}
+	return buf;
 }
 
 // Transfers Func_Call_Cont_Buf_t to FunctionCallBuffer.
@@ -270,14 +415,20 @@ vector<FunctionCallBuffer> SearchAvalanche::getFunctionCallBuffer(vector<Func_Ca
 	return v_new;
 }
 
-void SearchAvalanche::searchAvalancheBetweenInAndOut(FunctionCallBuffer &in, FunctionCallBuffer &out)
+void SearchAvalanche::searchAvalancheBetweenInAndOut_IGNORE(FunctionCallBuffer &in, FunctionCallBuffer &out)
 {
-	NodePropagate prev_s, curr_s;
+	NodePropagate prev_s, curr_s,s;
 	Propagate propagate;
 	unordered_set<Node, NodeHash> propagateResult;
-	vector<FunctionCallBuffer> vOutAvalanche;
-	unsigned int inBytes;
+	
+	vector<FunctionCallBuffer> vTempAvalancheRes, vAvalancheRes;
+	AvalancheRes avalRes;
+	AvalancheResBetweenInAndOut avalResInOut;
+
+
+	unsigned int inBytes, numInByteSearch, byteIndex;
 	unsigned long inBeginAddr;
+	bool isNewSearch;
 
 #ifdef DEBUG
 	cout << "Input buffer: "	<< endl;
@@ -299,15 +450,22 @@ void SearchAvalanche::searchAvalancheBetweenInAndOut(FunctionCallBuffer &in, Fun
 
 	inBytes = in.buffer.size / BIT_TO_BYTE;
 	inBeginAddr = in.buffer.beginAddr;
-	for(int byteIndex = 0; byteIndex < inBytes; byteIndex++){
+	numInByteSearch = 0;
+	isNewSearch = true;
+	byteIndex = 0;
+
+// Process 1st byte of each ponential avalanche buffer
+LABEL_STAGE_ONE:
+	while(byteIndex < inBytes){
+
+
 		prev_s = curr_s;
 		curr_s = initialBeginNode(in, inBeginAddr, m_logAesRec);
-		inBeginAddr++;
 
 		// Temporary Optimize
 		// No need to search propagte result for duplicate begin node
 		if(!isSameNode(prev_s, curr_s) ){
-			propagateResult = propagate.getPropagateResult(curr_s, m_logAesRec);
+			propagateResult = propagate.getPropagateResult(curr_s,m_logAesRec);
 #ifdef DEBUG
 			// cout << "Number of propagate result: " << propagateResult.size() << endl;
 			// for(auto s : propagateResult){
@@ -315,10 +473,186 @@ void SearchAvalanche::searchAvalancheBetweenInAndOut(FunctionCallBuffer &in, Fun
 			// 	cout << "Size: " << s.sz / BIT_TO_BYTE << " bytes" << endl;
 			// }
 #endif
-			vOutAvalanche = getOutputAvalanche(propagateResult, out);
-			if(!vOutAvalanche.empty())
-				cout << "get avalanche intersect with output: has result" << endl;
-			// ONLY for the 1st byte of IN, need to work with ...
+			vTempAvalancheRes = getAvalancheInNewSearch(propagateResult, out);
+
+			if(!vTempAvalancheRes.empty() ){
+				avalRes.avalIn.beginAddr = inBeginAddr;
+				avalRes.avalIn.size = 1 * BIT_TO_BYTE;
+				goto LABEL_STAGE_TWO;	
+			}
+		}
+
+		inBeginAddr++;
+		byteIndex++;
+		numInByteSearch++;
+	}
+
+// Process rest bytes of each ponential avalanche buffer
+LABEL_STAGE_TWO:
+	while(byteIndex < inBytes){
+		byteIndex++;
+	}
+}
+
+
+AvalancheResBetweenInAndOut SearchAvalanche::searchAvalancheBetweenInAndOut(FunctionCallBuffer &in, FunctionCallBuffer &out)
+{
+	NodePropagate s, curr_s, prev_s;
+	Propagate propagate;
+	unordered_set<Node, NodeHash> propagateRes;
+
+	unsigned long inBeginAddr;
+	unsigned int numInByteAccumulate, byteIndex;
+
+	Buffer avalIn;
+	vector<Buffer> vAvalOut;
+	vector<FunctionCallBuffer> vFuncAvalOut;
+
+	AvalancheRes avalRes;
+	AvalancheResBetweenInAndOut avalResInOut;
+
+	avalIn.beginAddr = 0;
+	avalIn.size = 0;
+	vAvalOut.clear();
+
+	avalRes.avalIn.beginAddr = 0;
+	avalRes.avalIn.size = 0;
+	avalRes.vAvalOut.clear();
+
+	assignFunctionCallBuffer(avalResInOut.in, in);
+	assignFunctionCallBuffer(avalResInOut.out, out);
+	avalResInOut.vAvalacheRes.clear();
+
+	byteIndex = 0;
+	numInByteAccumulate = 0;
+	inBeginAddr = in.buffer.beginAddr;
+
+// Process first stage
+LABEL_S_ONE:
+	while(byteIndex < in.buffer.size / BIT_TO_BYTE){
+		s = initialBeginNode(in, inBeginAddr, m_logAesRec);
+		propagateRes = propagate.getPropagateResult(s, m_logAesRec);
+		vFuncAvalOut = getAvalancheInNewSearch(propagateRes, out);
+
+		// if 1st byte can propagate to any valid subset of out?
+		if(!vFuncAvalOut.empty() ){
+			// we don't need vFuncAvalOut, only need vAvalOut
+			// need to transfer
+			for(vector<FunctionCallBuffer>::iterator it = vFuncAvalOut.begin(); 
+				it != vFuncAvalOut.end(); ++it){
+				Buffer buf;
+				buf.beginAddr = it->buffer.beginAddr;
+				buf.size = it->buffer.size;
+				vAvalOut.push_back(buf);
+			}
+			// 1st byte has propagate result, init avalIn
+			avalIn.beginAddr = inBeginAddr;
+			avalIn.size = 1 * BIT_TO_BYTE;
+
+			byteIndex++;
+			numInByteAccumulate++;
+			inBeginAddr++;
+			goto LABEL_S_TWO;		
+		} else{
+			byteIndex++;
+			inBeginAddr++;
 		}
 	}
+
+LABEL_S_TWO:
+	while(byteIndex < in.buffer.size / BIT_TO_BYTE){
+		prev_s = curr_s;
+		curr_s = initialBeginNode(in, inBeginAddr, m_logAesRec);
+		if(!isSameNode(prev_s, curr_s)){
+			propagateRes = propagate.getPropagateResult(s, m_logAesRec);
+			vAvalOut = getAvalancheInRestByte(propagateRes, vAvalOut);
+		}
+
+		if(!vAvalOut.empty() ){
+			// can propagate, accumulate size
+			avalIn.size += 1 * BIT_TO_BYTE;
+
+			byteIndex++;
+			numInByteAccumulate++;
+			inBeginAddr++;
+		} else{
+			// clear avalIn, vAvalOut
+			if(numInByteAccumulate >= VALID_AVALANCHE_LEN){
+				// save avalIn, vAvalOut to AvalancheRes
+				saveAvalancheResult(avalRes, avalIn, vAvalOut);
+				avalResInOut.vAvalacheRes.push_back(avalRes);
+			}
+			clearAvalacheResult(avalRes, avalIn, vAvalOut);
+			byteIndex++;
+			numInByteAccumulate = 0;
+			inBeginAddr++;
+			goto LABEL_S_ONE;
+		}
+	}
+
+	// if all bytes of in can propagate to all of out
+	if(avalIn.beginAddr != 0 && 
+	   avalIn.size / BIT_TO_BYTE >= VALID_AVALANCHE_LEN && 
+	   !vAvalOut.empty() ){
+		saveAvalancheResult(avalRes, avalIn, vAvalOut);
+		avalResInOut.vAvalacheRes.push_back(avalRes);
+	}
+
+	return avalResInOut;
+}
+
+void SearchAvalanche::searchAvalancheBetweenInAndOutDebug(FunctionCallBuffer &in, FunctionCallBuffer &out)
+{
+	NodePropagate s;
+	unordered_set<Node, NodeHash> propagateResult;
+	Propagate propagate;
+
+	s = initialBeginNode(in, in.buffer.beginAddr, m_logAesRec);
+	propagateResult = propagate.getPropagateResult(s, m_logAesRec);
+#ifdef DEBUG
+	cout << "Number of propagate result: " << propagateResult.size() << endl;
+	for(auto s : propagateResult){
+		cout << "Addr: " << hex << s.i_addr << endl;
+		cout << "Size: " << s.sz / BIT_TO_BYTE << " bytes" << endl;
+	}
+#endif
+}
+
+void SearchAvalanche::printAvalResBetweenInAndOut(AvalancheResBetweenInAndOut &avalResInOut)
+{
+	cout << "Search Avalache Input Buffer: " << endl;
+	printFunctionCallBuffer(avalResInOut.in);
+	cout << "Search Avalache Output Buffer: " << endl;
+	printFunctionCallBuffer(avalResInOut.out);
+	for(auto s : avalResInOut.vAvalacheRes){
+		printAvalancheRes(s);
+	}
+}
+
+void SearchAvalanche::printFunctionCallBuffer(FunctionCallBuffer &a)
+{
+	cout << "Call Mark: " << a.callMark << endl;
+	cout << "Sec Call Mark: " << a.callSecMark << endl;
+	cout << "Ret Mark: " << a.retMark << endl;
+	cout << "Sec Ret Mark: " << a.retSecMark << endl;
+	cout << "Buffer Begin Addr: " << hex << a.buffer.beginAddr << endl;
+	cout << "Buffer Size: " << dec << a.buffer.size / BIT_TO_BYTE << endl; 
+}
+
+void SearchAvalanche::printAvalancheRes(AvalancheRes &avalRes)
+{
+	cout << "avalache effect from buffer: " << endl;
+	cout << "Buffer begin addr: " << hex << avalRes.avalIn.beginAddr << endl;
+	cout << "Buffer size: " << dec << avalRes.avalIn.size / BIT_TO_BYTE << endl;
+
+	cout << "avalache effect to buffers: " << endl;
+	for(auto s : avalRes.vAvalOut)
+		printBuffer(s);
+
+}
+
+void SearchAvalanche::printBuffer(Buffer &a)
+{
+	cout << "Buffer Begin Addr: " << hex << a.beginAddr << endl;
+	cout << "Buffer Size: " << dec << a.size / BIT_TO_BYTE << endl; 
 }

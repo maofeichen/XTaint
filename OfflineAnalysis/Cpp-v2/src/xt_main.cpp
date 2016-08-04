@@ -62,6 +62,8 @@ int main(int argc, char const *argv[])
     // Searches avalanche based on continuous buffer of liveness analysis
     SearchAvalanche sa(v_func_call_cont_buf, logAESRec);
     sa.searchAvalanche();
+    // DEBUG: bffff744 propagate result
+    // sa.searchAvalancheDebug();
 
     // Propagate propa;
     // std::unordered_set<Node, NodeHash> propagate_res;
@@ -75,20 +77,20 @@ int main(int argc, char const *argv[])
     // ----------------------------------------
     // Test Case 3: aes 1B with size mark refine
     // ----------------------------------------
-    XT_File file_refine(XT_FILE_PATH + FILE_REFINE + XT_FILE_EXT);
-    log_refine = file_refine.read();
-    log_refine = XT_PreProcess::add_mem_size_info(log_refine);
+    // XT_File file_refine(XT_FILE_PATH + FILE_REFINE + XT_FILE_EXT);
+    // log_refine = file_refine.read();
+    // log_refine = XT_PreProcess::add_mem_size_info(log_refine);
 
-    Propagate propa;
-    std::unordered_set<Node, NodeHash> propagate_res;
-    vector<NodePropagate> allPropagateRes;
-    propagate_res = propa.searchAvalanche(log_refine, allPropagateRes);
+    // Propagate propa;
+    // std::unordered_set<Node, NodeHash> propagate_res;
+    // vector<NodePropagate> allPropagateRes;
+    // propagate_res = propa.searchAvalanche(log_refine, allPropagateRes);
     // file_refine.write_all_propagate_result(XT_RESULT_PATH + FILE_REFINE + ALL_PROPAGATE_RES + XT_FILE_EXT, allPropagateRes);
 
-    vector<Node> v_propagate_res;
-    for(auto s : propagate_res)
-        v_propagate_res.push_back(s);
-    sort(v_propagate_res.begin(), v_propagate_res.end(), compare_res_node);
+    // vector<Node> v_propagate_res;
+    // for(auto s : propagate_res)
+    //     v_propagate_res.push_back(s);
+    // sort(v_propagate_res.begin(), v_propagate_res.end(), compare_res_node);
 
     return 0;
 }
